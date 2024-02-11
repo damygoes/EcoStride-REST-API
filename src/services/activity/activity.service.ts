@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import slugify from "slugify";
-import { ActivityDocument } from "../../interfaces/ActivityDocument";
-import { MatchQuery } from "../../interfaces/MatchQuery";
+
+import { ActivityDocument } from "../../interfaces/activityDocument";
+import { MatchQuery } from "../../interfaces/matchQuery";
 import { projectActivityDetails } from "../../interfaces/projectActivityDetails";
 import { ActivityModel } from "../../models/Activity";
 import { AddressModel } from "../../models/Address";
@@ -31,52 +32,6 @@ export const getActivities = async (
   };
 
   let matchStage: { $match: MatchQuery } = { $match: {} };
-
-  //   let pipeline: any[] = [
-  //     {
-  //       $lookup: {
-  //         from: "addresses",
-  //         localField: "address",
-  //         foreignField: "_id",
-  //         as: "addressDetails",
-  //       },
-  //     },
-  //     {
-  //       $unwind: "$addressDetails",
-  //     },
-  //     {
-  //       $lookup: {
-  //         from: "startcoordinates",
-  //         localField: "startCoordinate",
-  //         foreignField: "_id",
-  //         as: "startCoordinateDetails",
-  //       },
-  //     },
-  //     {
-  //       $lookup: {
-  //         from: "endcoordinates",
-  //         localField: "endCoordinate",
-  //         foreignField: "_id",
-  //         as: "endCoordinateDetails",
-  //       },
-  //     },
-  //     {
-  //       $unwind: {
-  //         path: "$startCoordinateDetails",
-  //         preserveNullAndEmptyArrays: true, // Keeps activities without start coordinates
-  //       },
-  //     },
-  //     {
-  //       $unwind: {
-  //         path: "$endCoordinateDetails",
-  //         preserveNullAndEmptyArrays: true, // Keeps activities without end coordinates
-  //       },
-  //     },
-  //     {
-  //       $match: {} as MatchQuery,
-  //     },
-  //     projectActivityDetails,
-  //   ];
 
   // Dynamically add filters to the $match stage and dynamically create indexes
   if (city) matchStage.$match["addressDetails.city"] = city;
@@ -177,34 +132,6 @@ export const getActivity = async (
     res.status(500).json({ error: error.message });
   }
 };
-
-// export const getActivity = async (
-//   req: Request,
-//   res: Response
-// ): Promise<Response<any, Record<string, any>>> => {
-//   const { slug } = req.params;
-//   try {
-//     // Use .populate() to include related documents
-//     const activity = await ActivityModel.findOne({ slug })
-//       .populate("address")
-//       .populate("startCoordinate")
-//       .populate("endCoordinate");
-
-//     if (!activity) {
-//       return res.status(404).json({ message: "Activity not found" });
-//     } else {
-//       const modifiedActivity = activity.toObject() as ActivityDocument;
-//       //   modifiedActivity.addressDetails = modifiedActivity.address;
-//       //   delete modifiedActivity.address;
-//       res.json(modifiedActivity);
-//     }
-//   } catch (error) {
-//     if (error.name === "CastError") {
-//       return res.status(400).json({ message: "Invalid activity ID format" });
-//     }
-//     res.status(500).json({ error: error.message });
-//   }
-// };
 
 export const getUsersCreatedActivities = async (
   req: CustomRequest,

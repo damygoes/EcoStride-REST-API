@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import express from "express";
 import http from "http";
 import mongoose from "mongoose";
+import activityRoute from "./controllers/activity.controller";
 import authenticateUserRoute from "./controllers/auth.controller";
 import userRoute from "./controllers/user.controller";
 import { corsOptions } from "./utils/corsOptions";
@@ -24,6 +25,7 @@ app.use(compression());
 // Routes
 app.use("/api", authenticateUserRoute);
 app.use("/users", userRoute);
+app.use("/activities", activityRoute);
 
 // DB Connection
 mongoose

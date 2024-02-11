@@ -4,7 +4,17 @@ const UserSchema = new Schema(
   {
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      validate: {
+        validator: function (v: string) {
+          return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
+        },
+        message: (props: any) => `${props.value} is not a valid email address!`,
+      },
+    },
     avatar: { type: String },
     role: { type: String, default: "USER" },
     authenticated: {

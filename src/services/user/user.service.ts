@@ -23,9 +23,16 @@ export type User = {
   updatedAt?: Date;
 };
 
-export const getUsers = async (req: Request, res: Response): Promise<void> => {
+export const getUsers = async (
+  req: CustomRequest,
+  res: Response
+): Promise<void> => {
+  const { role } = req.query;
+  // Construct a query object based on provided query parameters
+  let queryObject: { [key: string]: any } = {};
+  if (role) queryObject["role"] = role.toString().toUpperCase();
   try {
-    const users = await UserModel.find();
+    const users = await UserModel.find(queryObject);
     res.json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -75,7 +82,13 @@ export const createUser = async (
     const newUser = await user.save();
     res.status(201).json(newUser);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    if (error.name === "MongoServerError" && error.code === 11000) {
+      res.status(409).json({ error: "Email already exists" });
+    } else if (error.name === "ValidationError") {
+      res.status(400).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: "Internal server error" });
+    }
   }
 };
 
@@ -147,3 +160,5 @@ export const updateUserById = async (req: CustomRequest, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+//

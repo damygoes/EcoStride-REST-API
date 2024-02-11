@@ -28,7 +28,7 @@ export const authenticateUser = async (req: Request, res: Response) => {
       { userId: user.id },
       process.env.JWT_SECRET_KEY, // JWT_SECRET in the .env is for signing the token to ensure it's not tampered with.
       {
-        expiresIn: "3h",
+        expiresIn: "24h",
       }
     );
 

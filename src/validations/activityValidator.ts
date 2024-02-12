@@ -5,8 +5,6 @@ import {
   validDifficultyLevels,
   validRouteTypes,
 } from "../models/Activity";
-import { addressValidationSchema } from "./addressValidator";
-import { coordinateValidationSchema } from "./coordinateValidator";
 
 export const activityValidationSchema = Joi.object({
   name: Joi.string().required(),
@@ -44,7 +42,17 @@ export const activityValidationSchema = Joi.object({
     }),
   photos: Joi.array().items(Joi.string()),
   tags: Joi.array().items(Joi.string()),
-  address: addressValidationSchema.required(),
-  startCoordinate: coordinateValidationSchema,
-  endCoordinate: coordinateValidationSchema,
-});
+  address: Joi.object({
+    city: Joi.string().required(),
+    state: Joi.string().required(),
+    country: Joi.string().required(),
+  }).required(),
+  startCoordinate: Joi.object({
+    latitude: Joi.number().required(),
+    longitude: Joi.number().required(),
+  }),
+  endCoordinate: Joi.object({
+    latitude: Joi.number().required(),
+    longitude: Joi.number().required(),
+  }),
+}).strict();

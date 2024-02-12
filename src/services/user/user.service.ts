@@ -1,27 +1,7 @@
 import { Request, Response } from "express";
-import mongoose from "mongoose";
+import { CustomRequest } from "../../interfaces/customRequest";
 import { UserModel } from "../../models/User";
-import { UserProfileModel } from "../../models/UserProfile";
-
-interface CustomRequest extends Request {
-  user?: {
-    userId: string;
-    // Include other properties as needed
-  };
-}
-
-export type User = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  avatar: string;
-  role: string;
-  authenticated: {
-    sessionToken: string;
-  };
-  createdAt?: Date;
-  updatedAt?: Date;
-};
+import { userProfileValidationSchema } from "../../validations/userProfileValidator";
 
 export const getUsers = async (
   req: CustomRequest,
@@ -31,8 +11,13 @@ export const getUsers = async (
   // Construct a query object based on provided query parameters
   let queryObject: { [key: string]: any } = {};
   if (role) queryObject["role"] = role.toString().toUpperCase();
+
+  const projection = {
+    profile: 0,
+  };
+
   try {
-    const users = await UserModel.find(queryObject);
+    const users = await UserModel.find(queryObject, projection);
     res.json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -92,7 +77,10 @@ export const createUser = async (
   }
 };
 
-export const deleteUserById = async (req: CustomRequest, res: Response) => {
+export const deleteUserById = async (
+  req: CustomRequest,
+  res: Response
+): Promise<Response<any, Record<string, any>>> => {
   const { id } = req.params;
   const userIdFromToken = req.user?.userId;
 
@@ -102,34 +90,13 @@ export const deleteUserById = async (req: CustomRequest, res: Response) => {
       .json({ message: "You can only delete your own record" });
   }
 
-  // Start a session and transaction
-  const session = await mongoose.startSession();
-  session.startTransaction();
   try {
-    // Delete operations within the transaction
-    const deletedUser = await UserModel.findByIdAndDelete(id, {
-      session,
-    }).exec();
+    const deletedUser = await UserModel.findByIdAndDelete(id);
     if (!deletedUser) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ message: "User not found" }).end();
+      return res.status(404).json({ message: "User not found" });
     }
-
-    // Assuming the UserProfile uses the same user ID to link
-    await UserProfileModel.deleteOne({ userId: id }, { session }).exec();
-
-    // If you have other collections to delete, add them here using the same session
-
-    // Commit the transaction
-    await session.commitTransaction();
-    session.endSession();
-
-    res.status(204).send(); // No content to send back, just indicate success
+    res.json(deletedUser);
   } catch (error) {
-    // If an error occurs, abort the transaction and log the error
-    await session.abortTransaction();
-    session.endSession();
     res.status(500).json({ error: error.message });
   }
 };
@@ -147,6 +114,10 @@ export const updateUserById = async (req: CustomRequest, res: Response) => {
   }
 
   try {
+    let updateObject = { ...userUpdateData };
+    // Explicitly prevent updating certain fields if necessary
+    delete updateObject.id; // Prevent changing the ID
+    delete updateObject.authenticated; // Prevent direct updates to authentication details
     const updatedUser = await UserModel.findByIdAndUpdate(id, userUpdateData, {
       new: true,
     });
@@ -161,4 +132,152 @@ export const updateUserById = async (req: CustomRequest, res: Response) => {
   }
 };
 
-//
+// User Profile
+export const getUserProfile = async (req: CustomRequest, res: Response) => {
+  const userIdFromToken = req.user?.userId;
+  const userId = req.params.id;
+
+  if (!userIdFromToken) {
+    res.status(403).json({ message: "User ID not found in token" });
+    return;
+  }
+
+  if (userIdFromToken !== userId) {
+    return res
+      .status(403)
+      .json({ message: "You are not authorized to view this profile" });
+  }
+
+  try {
+    const user = await UserModel.findById(userId, "profile");
+    if (!user.profile || user.profile === undefined) {
+      return res.status(404).json({ message: "Profile is empty" });
+    }
+
+    res.json(user.profile);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const createUserProfile = async (req: CustomRequest, res: Response) => {
+  const userIdFromToken = req.user?.userId;
+  const userId = req.params.id;
+  const profileData = req.body;
+
+  if (!userIdFromToken) {
+    return res.status(403).json({ message: "Authentication required" });
+  }
+
+  if (userIdFromToken !== userId) {
+    return res.status(403).json({
+      message: "You are not authorized to create a profile for this User",
+    });
+  }
+
+  // Validate the profile data
+  const validationResult = userProfileValidationSchema.validate(profileData);
+  if (validationResult.error) {
+    return res.status(400).json({ error: validationResult.error.message });
+  }
+
+  try {
+    const user = await UserModel.findById(userIdFromToken);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Update or set the profile data
+    user.profile = validationResult.value;
+    const updatedUser = await user.save();
+
+    res.status(201).json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updateUserProfile = async (req: CustomRequest, res: Response) => {
+  const id = req.params.id;
+  const userIdFromToken = req.user?.userId;
+  const profileUpdateData = req.body;
+
+  const validationResult =
+    userProfileValidationSchema.validate(profileUpdateData);
+  if (validationResult.error) {
+    return res.status(400).json({ error: validationResult.error.message });
+  }
+
+  // Check for a valid user ID in the token
+  if (!userIdFromToken) {
+    return res.status(403).json({ message: "User ID not found in token" });
+  }
+
+  // Ensure the user can only update their own profile
+  if (id !== userIdFromToken) {
+    return res
+      .status(403)
+      .json({ message: "You can only update your own profile" });
+  }
+
+  try {
+    // Constructing dynamic $set object for updating only provided fields
+    const updateObject = Object.keys(validationResult.value).reduce(
+      (acc: { [key: string]: any }, key) => {
+        acc[`profile.${key}`] = validationResult.value[key];
+        return acc;
+      },
+      {}
+    );
+
+    const updatedUserProfile = await UserModel.findByIdAndUpdate(
+      userIdFromToken,
+      { $set: updateObject },
+      { new: true }
+    );
+
+    if (!updatedUserProfile) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(updatedUserProfile);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const deleteUserProfile = async (req: CustomRequest, res: Response) => {
+  const userIdFromToken = req.user?.userId;
+  const userId = req.params.id;
+
+  if (!userIdFromToken) {
+    return res.status(403).json({ message: "Authentication required" });
+  }
+
+  if (userIdFromToken !== userId) {
+    return res.status(403).json({
+      message: "You are not authorized to delete this profile",
+    });
+  }
+
+  if (!userIdFromToken) {
+    return res.status(403).json({ message: "Authentication required" });
+  }
+
+  try {
+    const user = await UserModel.findById(userIdFromToken);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Remove the profile data
+    user.profile = undefined;
+    await user.save();
+
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NWM5ZjVmMWIzOTdmN2EyODI2OTM3NTQiLCJpYXQiOjE3MDc3MzQ1MTMsImV4cCI6MTcwNzgyMDkxM30.E9L31AGCQN-qBUdT_IyzvotWLE01yWwfIPOQAEyfxpM

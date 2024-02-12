@@ -7,15 +7,13 @@ import {
 } from "../services/activity/activity.service";
 import {
   createUserProfile,
-  deleteUserProfile,
-  getUserProfile,
-  updateUserProfile,
-} from "../services/user-profile/UserProfile.service";
-import {
   deleteUserById,
+  deleteUserProfile,
   getUserById,
+  getUserProfile,
   getUsers,
   updateUserById,
+  updateUserProfile,
 } from "../services/user/user.service";
 
 const userRouter = express.Router();
@@ -27,10 +25,10 @@ userRouter.patch("/:id", userIsUserMiddleware, updateUserById);
 userRouter.delete("/:id", userIsUserMiddleware, deleteUserById);
 
 // User Profile
-userRouter.get("/:id/profile", getUserProfile);
-userRouter.post("/:id/profile", createUserProfile);
-userRouter.patch("/:id/profile", updateUserProfile);
-userRouter.delete("/:id/profile", deleteUserProfile);
+userRouter.get("/:id/profile", userIsUserMiddleware, getUserProfile);
+userRouter.post("/:id/profile", userIsUserMiddleware, createUserProfile);
+userRouter.patch("/:id/profile", userIsUserMiddleware, updateUserProfile);
+userRouter.delete("/:id/profile", userIsUserMiddleware, deleteUserProfile);
 
 // User Activity
 userRouter.get(
@@ -50,6 +48,3 @@ userRouter.get(
 );
 
 export default userRouter;
-
-// TOKEn for user testing account:
-// eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NWM3OGUwOTNiNjhjYTI0ZDJlNWQwOWEiLCJpYXQiOjE3MDc1NzY4NDEsImV4cCI6MTcwNzY2MzI0MX0.wLA4pkMQ8Lts2lnamjTv6M9OAyy-lYJQIGiCE7-BsDA

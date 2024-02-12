@@ -886,6 +886,165 @@
         "latitude": 49.4162,
         "longitude": 8.722
       }
+    },
+    {
+      "name": "Central Park Morning Run",
+      "description": "A peaceful run through Central Park to enjoy the morning tranquility.",
+      "distance": 5.0,
+      "elevationGain": 50,
+      "minimumGrade": 0,
+      "maximumGrade": 4,
+      "averageGrade": 1,
+      "timeToComplete": 1800,
+      "difficultyLevel": "Easy",
+      "activityType": "Run",
+      "routeType": "Flat",
+      "photos": [
+        "https://images.unsplash.com/photo-1572536917952-ff353a16fa64?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTd8fGNlbnRyYWwlMjBwYXJrfGVufDB8fDB8fHwy",
+        "https://images.unsplash.com/photo-1575372587186-5012f8886b4e?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8Y2VudHJhbCUyMHBhcmt8ZW58MHx8MHx8fDI=",
+        "https://images.unsplash.com/photo-1623593419606-7f9c8c22d736?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8Y2VudHJhbCUyMHBhcmt8ZW58MHx8MHx8fDI=",
+        "https://images.unsplash.com/photo-1560806925-36a1f0240279?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTZ8fGNlbnRyYWwlMjBwYXJrfGVufDB8fDB8fHwy"
+      ],
+      "tags": ["morning", "park", "New York"],
+      "address": {
+        "city": "New York",
+        "state": "NY",
+        "country": "USA"
+      },
+      "startCoordinate": {
+        "latitude": 40.785091,
+        "longitude": -73.968285
+      },
+      "endCoordinate": {
+        "latitude": 40.796787,
+        "longitude": -73.949232
+      }
+    },
+    {
+      "name": "Golden Gate Bridge Run",
+      "description": "Experience the iconic Golden Gate on a refreshing morning run.",
+      "distance": 3.5,
+      "elevationGain": 100,
+      "minimumGrade": 1,
+      "maximumGrade": 6,
+      "averageGrade": 2,
+      "timeToComplete": 1500,
+      "difficultyLevel": "Moderate",
+      "activityType": "Run",
+      "routeType": "Rolling",
+      "photos": [
+        "https://images.unsplash.com/photo-1516473344662-e3a32406ecad?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OHx8Z29sZGVuJTIwZ2F0ZXxlbnwwfHwwfHx8Mg%3D%3D",
+        "https://images.unsplash.com/photo-1610476905149-ac7d552b46be?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8Z29sZGVuJTIwZ2F0ZXxlbnwwfHwwfHx8Mg%3D%3D",
+        "https://images.unsplash.com/photo-1598197904775-6de974571795?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OXx8Z29sZGVuJTIwZ2F0ZXxlbnwwfHwwfHx8Mg%3D%3D"
+      ],
+      "tags": ["bridge", "San Francisco", "morning"],
+      "address": {
+        "city": "San Francisco",
+        "state": "CA",
+        "country": "USA"
+      },
+      "startCoordinate": {
+        "latitude": 37.8199286,
+        "longitude": -122.4782551
+      },
+      "endCoordinate": {
+        "latitude": 37.802394,
+        "longitude": -122.455516
+      }
+    },
+    {
+      "name": "Trail Run Through Griffith Park",
+      "description": "Challenge yourself with a trail run through Griffith Park's rugged terrain.",
+      "distance": 10.0,
+      "elevationGain": 500,
+      "minimumGrade": 0,
+      "maximumGrade": 15,
+      "averageGrade": 5,
+      "timeToComplete": 3600,
+      "difficultyLevel": "Hard",
+      "activityType": "Run",
+      "routeType": "Hilly",
+      "photos": [
+        "https://images.unsplash.com/photo-1617247061380-e6b3a14a59cf?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTd8fEdyaWZmaXRoJTIwUGFya3xlbnwwfHwwfHx8Mg%3D%3D",
+        "https://images.unsplash.com/photo-1588123066808-77f5ed279aee?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8R3JpZmZpdGglMjBQYXJrfGVufDB8fDB8fHwy"
+      ],
+      "tags": ["trail", "Los Angeles", "nature"],
+      "address": {
+        "city": "Los Angeles",
+        "state": "CA",
+        "country": "USA"
+      },
+      "startCoordinate": {
+        "latitude": 34.136554,
+        "longitude": -118.2942
+      },
+      "endCoordinate": {
+        "latitude": 34.132334,
+        "longitude": -118.280542
+      }
+    },
+    {
+      "name": "Hyde Park Sunrise Run",
+      "description": "A serene run at sunrise around Hyde Park's beautiful landscapes.",
+      "distance": 4.0,
+      "elevationGain": 40,
+      "minimumGrade": 0,
+      "maximumGrade": 3,
+      "averageGrade": 1,
+      "timeToComplete": 2000,
+      "difficultyLevel": "Easy",
+      "activityType": "Run",
+      "routeType": "Flat",
+      "photos": [
+        "https://images.unsplash.com/photo-1560706834-c8b400d29d37?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8aHlkZSUyMFBhcmt8ZW58MHx8MHx8fDI%3D",
+        "https://images.unsplash.com/photo-1574361435965-10615b228eef?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8aHlkZSUyMFBhcmt8ZW58MHx8MHx8fDI%3D"
+      ],
+      "tags": ["park", "London", "sunrise"],
+      "address": {
+        "city": "London",
+        "state": "London",
+        "country": "UK"
+      },
+      "startCoordinate": {
+        "latitude": 51.507268,
+        "longitude": -0.16573
+      },
+      "endCoordinate": {
+        "latitude": 51.512488,
+        "longitude": -0.175607
+      }
+    },
+    {
+      "name": "Vancouver Seawall Run",
+      "description": "Enjoy the scenic views of the Vancouver Seawall on this refreshing run.",
+      "distance": 9.0,
+      "elevationGain": 20,
+      "minimumGrade": 0,
+      "maximumGrade": 2,
+      "averageGrade": 1,
+      "timeToComplete": 3300,
+      "difficultyLevel": "Moderate",
+      "activityType": "Run",
+      "routeType": "Flat",
+      "photos": [
+        "https://images.unsplash.com/photo-1639074379093-c13d4af36e7e?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8VmFuY291dmVyJTIwU2Vhd2FsbHxlbnwwfHwwfHx8Mg%3D%3D",
+        "https://images.unsplash.com/photo-1611674929309-30a2c9be2f2b?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTF8fFZhbmNvdXZlciUyMFNlYXdhbGx8ZW58MHx8MHx8fDI%3D",
+        "https://images.unsplash.com/photo-1698889245446-f68aa6e90748?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTN8fFZhbmNvdXZlciUyMFNlYXdhbGx8ZW58MHx8MHx8fDI%3D"
+      ],
+      "tags": ["seawall", "Vancouver", "scenic"],
+      "address": {
+        "city": "Vancouver",
+        "state": "BC",
+        "country": "Canada"
+      },
+      "startCoordinate": {
+        "latitude": 49.289418,
+        "longitude": -123.142676
+      },
+      "endCoordinate": {
+        "latitude": 49.282729,
+        "longitude": -123.120738
+      }
     }
   ]
 }

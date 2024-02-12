@@ -24,7 +24,7 @@ const ActivitySchema = new Schema(
       required: true,
       unique: true,
     },
-    slug: { type: String, required: true, unique: true },
+    slug: { type: String, unique: true },
     description: { type: String, required: true },
     distance: { type: Number, required: true },
     elevationGain: { type: Number, required: true },
@@ -56,22 +56,22 @@ const ActivitySchema = new Schema(
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
     address: {
-      type: Schema.Types.ObjectId,
-      ref: "Address",
-      required: true,
+      city: { type: String, required: true },
+      state: { type: String, required: true },
+      country: { type: String, required: true },
+    },
+    startCoordinate: {
+      latitude: { type: Number, required: true },
+      longitude: { type: Number, required: true },
+    },
+    endCoordinate: {
+      latitude: { type: Number, required: true },
+      longitude: { type: Number, required: true },
     },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
-    },
-    startCoordinate: {
-      type: Schema.Types.ObjectId,
-      ref: "StartCoordinate",
-    },
-    endCoordinate: {
-      type: Schema.Types.ObjectId,
-      ref: "EndCoordinate",
     },
     isCreatedByAdmin: { type: Boolean, default: false },
   },

@@ -1,24 +1,13 @@
 import { Request, Response } from "express";
-import mongoose from "mongoose";
 import slugify from "slugify";
 
-import { ActivityDocument } from "../../interfaces/activityDocument";
-import { MatchQuery } from "../../interfaces/matchQuery";
-import { projectActivityDetails } from "../../interfaces/projectActivityDetails";
+import { CustomRequest } from "../../interfaces/customRequest";
 import { ActivityModel } from "../../models/Activity";
-import { AddressModel } from "../../models/Address";
 import { BucketListModel } from "../../models/BucketList";
 import { DoneActivityModel } from "../../models/DoneActivity";
-import { EndCoordinateModel } from "../../models/EndCoordinate";
-import { StartCoordinateModel } from "../../models/StartCoordinate";
 import { UserModel } from "../../models/User";
+import { Activity } from "../../types/Activity";
 import { activityValidationSchema } from "../../validations/activityValidator";
-
-interface CustomRequest extends Request {
-  user?: {
-    userId: string;
-  };
-}
 
 export const getActivities = async (
   req: Request,
@@ -31,62 +20,33 @@ export const getActivities = async (
     category?: string;
   };
 
-  let matchStage: { $match: MatchQuery } = { $match: {} };
+  // Initialize query object
+  let query: any = {};
 
-  // Dynamically add filters to the $match stage and dynamically create indexes
-  if (city) matchStage.$match["addressDetails.city"] = city;
-  if (state) matchStage.$match["addressDetails.state"] = state;
-  if (country) matchStage.$match["addressDetails.country"] = country;
-  if (category) matchStage.$match["climbCategory"] = category;
+  // Add query parameters if they exist
+  if (city) query["address.city"] = city;
+  if (state) query["address.state"] = state;
+  if (country) query["address.country"] = country;
+  if (category) query["climbCategory"] = category;
 
-  let pipeline: any[] = [
-    {
-      $lookup: {
-        from: "addresses",
-        localField: "address",
-        foreignField: "_id",
-        as: "addressDetails",
-      },
-    },
-    {
-      $unwind: "$addressDetails",
-    },
-    {
-      $lookup: {
-        from: "startcoordinates",
-        localField: "startCoordinate",
-        foreignField: "_id",
-        as: "startCoordinateDetails",
-      },
-    },
-    {
-      $lookup: {
-        from: "endcoordinates",
-        localField: "endCoordinate",
-        foreignField: "_id",
-        as: "endCoordinateDetails",
-      },
-    },
-    {
-      $unwind: {
-        path: "$startCoordinateDetails",
-        preserveNullAndEmptyArrays: true,
-      },
-    },
-    {
-      $unwind: {
-        path: "$endCoordinateDetails",
-        preserveNullAndEmptyArrays: true,
-      },
-    },
-    matchStage,
-    projectActivityDetails,
-  ];
+  // These are fields to exclude in the response. "Projection" is used to achieve this in MongoDB. This is optional but useful for performance.
+  const projection = {
+    description: 0,
+    minimumGrade: 0,
+    maximumGrade: 0,
+    difficultyLevel: 0,
+    routeType: 0,
+    tags: 0,
+    createdAt: 0,
+    updatedAt: 0,
+    startCoordinate: 0,
+    endCoordinate: 0,
+    createdBy: 0,
+    isCreatedByAdmin: 0,
+  };
 
   try {
-    const activities: ActivityDocument[] = await ActivityModel.aggregate(
-      pipeline
-    ); // Use ActivityDocument if you defined it
+    const activities = await ActivityModel.find(query, projection);
     return res.json(activities);
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -100,31 +60,13 @@ export const getActivity = async (
   const { slug } = req.params;
 
   try {
-    const pipeline: any[] = [
-      {
-        $match: { slug: slug },
-      },
-      {
-        $lookup: {
-          from: "addresses",
-          localField: "address",
-          foreignField: "_id",
-          as: "addressDetails",
-        },
-      },
-      {
-        $unwind: "$addressDetails",
-      },
-      projectActivityDetails,
-    ];
+    const activity = await ActivityModel.findOne({ slug });
 
-    const activities = await ActivityModel.aggregate(pipeline);
-
-    if (activities.length === 0) {
+    if (!activity) {
       return res.status(404).json({ message: "Activity not found" });
-    } else {
-      res.json(activities[0]); // Since slug should be unique, assuming only one result.
     }
+
+    return res.json(activity);
   } catch (error) {
     if (error.name === "CastError") {
       return res.status(400).json({ message: "Invalid activity slug format" });
@@ -270,86 +212,205 @@ export const getUsersDoneActivities = async (
 
 export const createActivity = async (req: CustomRequest, res: Response) => {
   const userId = req.user?.userId;
-  const session = await mongoose.startSession();
-  try {
-    session.startTransaction();
-    const validationResult = activityValidationSchema.validate(req.body);
-    if (validationResult.error) {
-      throw new Error(validationResult.error.message);
-    }
 
-    const user = await UserModel.findById(userId).session(session);
+  // Validate request body first
+  const validationResult = activityValidationSchema.validate(req.body);
+  if (validationResult.error) {
+    return res.status(400).json({ error: validationResult.error.message });
+  }
+
+  try {
+    const user = await UserModel.findById(userId);
     if (!user) {
-      throw new Error("User not found");
+      return res.status(404).json({ error: "User not found" });
     }
     const isUserAdmin = user.role === "ADMIN";
+
+    // Prepare slug to check for duplicates
+    const slug = slugify(validationResult.value.name, {
+      lower: true,
+      strict: true,
+    });
+
+    // Check if an activity with the same slug already exists
+    const existingActivity = await ActivityModel.findOne({ slug });
+    if (existingActivity) {
+      return res.status(409).json({ error: "Activity already exists" });
+    }
 
     // Prepare data for creating the activity
     const activityData = {
       ...validationResult.value,
-      slug: slugify(validationResult.value.name, { lower: true, strict: true }),
+      slug,
       createdBy: userId,
       isCreatedByAdmin: isUserAdmin,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
-    // Directly use the IDs for address, startCoordinate, and endCoordinate if they exist
-    if (validationResult.value.address) {
-      const addressDoc = await AddressModel.create(
-        [{ ...validationResult.value.address }],
-        { session }
-      );
-      activityData.address = addressDoc[0]._id;
-    }
-    if (validationResult.value.startCoordinate) {
-      const startCoordinateDoc = await StartCoordinateModel.create(
-        [{ ...validationResult.value.startCoordinate }],
-        { session }
-      );
-      activityData.startCoordinate = startCoordinateDoc[0]._id;
-    }
-    if (validationResult.value.endCoordinate) {
-      const endCoordinateDoc = await EndCoordinateModel.create(
-        [{ ...validationResult.value.endCoordinate }],
-        { session }
-      );
-      activityData.endCoordinate = endCoordinateDoc[0]._id;
-    }
+    const newActivity = await ActivityModel.create(activityData);
 
-    // Create the activity with prepared data
-    const activity = await ActivityModel.create([activityData], { session });
-
-    // Link the activity ID back to address and coordinates if they were created
-    if (activityData.address) {
-      await AddressModel.findByIdAndUpdate(
-        activityData.address,
-        { activityId: activity[0]._id },
-        { session }
-      );
-    }
-    if (activityData.startCoordinate) {
-      await StartCoordinateModel.findByIdAndUpdate(
-        activityData.startCoordinate,
-        { activityId: activity[0]._id },
-        { session }
-      );
-    }
-    if (activityData.endCoordinate) {
-      await EndCoordinateModel.findByIdAndUpdate(
-        activityData.endCoordinate,
-        { activityId: activity[0]._id },
-        { session }
-      );
-    }
-
-    await session.commitTransaction();
-    res.status(201).json(activity[0]);
+    res.status(201).json(newActivity);
   } catch (error) {
-    await session.abortTransaction();
     res.status(500).json({ error: error.message });
-  } finally {
-    session.endSession();
+  }
+};
+
+export const updateActivity = async (
+  req: CustomRequest,
+  res: Response
+): Promise<Response<any, Record<string, any>>> => {
+  const { slug } = req.params;
+  const userIdFromToken = req.user?.userId;
+
+  try {
+    // Retrieve user role along with the user ID from the token
+    const user = await UserModel.findById(userIdFromToken);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const isUserAdmin = user.role === "ADMIN";
+
+    // Find activity by slug to check authorization before updating
+    const activity = await ActivityModel.findOne({ slug: slug });
+    if (!activity) {
+      return res.status(404).json({ message: "Activity not found" });
+    }
+
+    // Check if the user is the creator or an admin
+    if (!isUserAdmin && activity.createdBy.toString() !== userIdFromToken) {
+      return res
+        .status(403)
+        .json({ message: "You are not authorized to update this activity" });
+    }
+
+    // Validate the incoming request body
+    const validationResult = activityValidationSchema.validate(req.body);
+    if (validationResult.error) {
+      return res.status(400).json({ message: validationResult.error.message });
+    }
+
+    // Directly update the activity with validated data, including embedded address or coordinates if present
+    const updateData = {
+      ...validationResult.value,
+      updatedAt: new Date(), // Ensure updatedAt is properly set
+    };
+
+    // If the name has changed, update the slug as well
+    if (
+      validationResult.value.name &&
+      validationResult.value.name !== activity.name
+    ) {
+      updateData.slug = slugify(validationResult.value.name, {
+        lower: true,
+        strict: true,
+      });
+    }
+
+    const updatedActivity = await ActivityModel.findOneAndUpdate(
+      { slug: slug },
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedActivity) {
+      return res.status(404).json({ message: "Unable to update the activity" });
+    }
+
+    res.status(200).json(updatedActivity);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//TODO: expand later to delete all related bucket list, done activities, comments and likes related to the activity
+export const deleteActivity = async (
+  req: CustomRequest,
+  res: Response
+): Promise<Response<any, Record<string, any>>> => {
+  const { slug } = req.params;
+  const userIdFromToken = req.user?.userId;
+
+  try {
+    // Retrieve user role along with the user ID from the token
+    const user = await UserModel.findById(userIdFromToken);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const isUserAdmin = user && user.role === "ADMIN";
+
+    // Find activity by slug to authorize the deletion
+    const activity = await ActivityModel.findOne({ slug: slug });
+    if (!activity) {
+      return res.status(404).json({ message: "Activity not found" });
+    }
+
+    // Check if the user is the creator or an admin
+    if (!isUserAdmin && activity.createdBy.toString() !== userIdFromToken) {
+      return res
+        .status(403)
+        .json({ message: "You are not authorized to delete this activity" });
+    }
+
+    // Proceed to delete the activity
+    const deletedActivity = await ActivityModel.deleteOne({ slug: slug });
+    if (deletedActivity.deletedCount === 0) {
+      // No document found or deleted
+      return res.status(404).json({ message: "Activity not found" });
+    }
+
+    res.status(204).send(); // 204 No Content for successful deletion
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//Database Seeding
+export const seedDatabaseWithMultipleActivities = async (
+  req: CustomRequest,
+  res: Response
+) => {
+  const userId = req.user?.userId;
+  const activitiesData = req.body.activities; // Expecting an array of activities in the request body
+
+  try {
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const isUserAdmin = user.role === "ADMIN";
+
+    // Validate and prepare all activities data before insertion
+    const preparedActivities = activitiesData.map(
+      (activityInput: Activity[]) => {
+        const validationResult =
+          activityValidationSchema.validate(activityInput);
+        if (validationResult.error) {
+          throw new Error(validationResult.error.message); // This will exit the loop and catch block will catch it
+        }
+
+        return {
+          ...validationResult.value,
+          slug: slugify(validationResult.value.name, {
+            lower: true,
+            strict: true,
+          }),
+          createdBy: userId,
+          isCreatedByAdmin: isUserAdmin,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+      }
+    );
+
+    // Bulk insert the prepared activities
+    await ActivityModel.insertMany(preparedActivities);
+
+    res.status(201).json({
+      message: `${preparedActivities.length} activities created successfully.`,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -362,286 +423,3 @@ In contrast, if you were to call Model.create(document, { session }) without wra
 
 This is an important distinction to make because it affects how you access the returned document's properties. If you're consistently using the array notation for a single document creation due to using transactions or expecting to potentially expand to bulk operations in the future, you'll need to remember to access the document using the [0] index.
  */
-
-export const updateActivity = async (
-  req: CustomRequest,
-  res: Response
-): Promise<void> => {
-  const { slug } = req.params;
-  const userIdFromToken = req.user?.userId;
-  const session = await mongoose.startSession();
-
-  try {
-    session.startTransaction();
-    // Retrieve user role along with the user ID from the token
-    const user = await UserModel.findById(userIdFromToken).session(session);
-    const isUserAdmin = user && user.role === "ADMIN";
-
-    // Find activity by slug
-    const activity = await ActivityModel.findOne({ slug }, null, { session });
-
-    if (!activity) {
-      await session.abortTransaction();
-      res.status(404).json({ message: "Activity not found" });
-      return;
-    }
-
-    // Check if the user is the creator or an admin
-    if (!isUserAdmin && activity.createdBy.toString() !== userIdFromToken) {
-      await session.abortTransaction();
-      res
-        .status(403)
-        .json({ message: "You are not authorized to update this activity" });
-      return;
-    }
-
-    const validationResult = activityValidationSchema.validate(req.body);
-    if (validationResult.error) {
-      await session.abortTransaction();
-      res.status(400).json({ message: validationResult.error.message });
-      return;
-    }
-
-    // Assuming validationResult.value includes potential updates for address, startCoordinate, and endCoordinate
-    if (validationResult.value.address) {
-      // Check if the activity already has an address to decide between update or create
-      let addressDoc;
-      if (activity.address) {
-        addressDoc = await AddressModel.findOneAndUpdate(
-          { _id: activity.address },
-          { $set: validationResult.value.address },
-          { new: true, session, runValidators: true }
-        );
-      } else {
-        // Directly pass the object without wrapping it in an array
-        addressDoc = await AddressModel.create(
-          {
-            ...validationResult.value.address,
-            activityId: activity._id,
-          },
-          { session }
-        );
-      }
-
-      // Ensure only the ObjectId is used in the ActivityModel update
-      validationResult.value.address = (addressDoc as any)._id;
-    }
-
-    if (validationResult.value.startCoordinate) {
-      let startCoordinateDoc;
-      if (activity.startCoordinate) {
-        startCoordinateDoc = await StartCoordinateModel.findOneAndUpdate(
-          { activityId: activity._id },
-          { $set: validationResult.value.startCoordinate },
-          { new: true, session, runValidators: true }
-        );
-      } else {
-        startCoordinateDoc = await StartCoordinateModel.create(
-          {
-            ...validationResult.value.startCoordinate,
-            activityId: activity._id,
-          },
-          { session }
-        );
-      }
-      validationResult.value.startCoordinate = (startCoordinateDoc as any)._id;
-    }
-
-    if (validationResult.value.endCoordinate) {
-      let endCoordinateDoc;
-      if (activity.endCoordinate) {
-        endCoordinateDoc = await EndCoordinateModel.findOneAndUpdate(
-          { activityId: activity._id },
-          { $set: validationResult.value.endCoordinate },
-          { new: true, session, runValidators: true }
-        );
-      } else {
-        endCoordinateDoc = await EndCoordinateModel.create(
-          { ...validationResult.value.endCoordinate, activityId: activity._id },
-          { session }
-        );
-      }
-      validationResult.value.endCoordinate = (endCoordinateDoc as any)._id;
-    }
-
-    // Generate a new slug if the name has changed
-    if (
-      validationResult.value.name &&
-      validationResult.value.name !== activity.name
-    ) {
-      validationResult.value.slug = slugify(validationResult.value.name, {
-        replacement: "-",
-        remove: undefined,
-        lower: true,
-        strict: false,
-        trim: true,
-      });
-    }
-
-    // Then proceed to update the activity, now with the address being an ObjectId
-    const updatedActivity = await ActivityModel.findOneAndUpdate(
-      { slug: activity.slug }, //use the original slug to find the activity
-      { $set: validationResult.value },
-      { new: true, session, runValidators: true } // Returns the updated document and uses the session
-    );
-
-    if (!updatedActivity) {
-      await session.abortTransaction();
-      res.status(404).json({ message: "Activity not found" });
-      return;
-    }
-
-    await session.commitTransaction();
-    res.status(200).json(updatedActivity);
-  } catch (error) {
-    await session.abortTransaction();
-    res.status(500).json({ error: error.message });
-  } finally {
-    session.endSession();
-  }
-};
-
-export const deleteActivity = async (
-  req: CustomRequest,
-  res: Response
-): Promise<void> => {
-  const { slug } = req.params;
-  const userIdFromToken = req.user?.userId;
-  const session = await mongoose.startSession();
-  try {
-    session.startTransaction();
-
-    // Retrieve user role along with the user ID from the token
-    const user = await UserModel.findById(userIdFromToken).session(session);
-    const isUserAdmin = user && user.role === "ADMIN";
-
-    // Find activity by slug
-    const activity = await ActivityModel.findOne({ slug }, null, { session });
-
-    if (!activity) {
-      await session.abortTransaction();
-      res.status(404).json({ message: "Activity not found" });
-      return;
-    }
-
-    // Check if the user is the creator or an admin
-    if (!isUserAdmin && activity.createdBy.toString() !== userIdFromToken) {
-      await session.abortTransaction();
-      res
-        .status(403)
-        .json({ message: "You are not authorized to delete this activity" });
-      return;
-    }
-
-    const activityId = activity._id;
-
-    // Delete related documents - related addresses start and end coordinates
-    await AddressModel.findOneAndDelete(
-      { activityId: activityId },
-      { session }
-    );
-
-    await StartCoordinateModel.findOneAndDelete(
-      { activityId: activityId },
-      { session }
-    );
-
-    await EndCoordinateModel.findOneAndDelete(
-      { activityId: activityId },
-      { session }
-    );
-
-    const deletedActivity = await ActivityModel.findByIdAndDelete(activityId, {
-      session,
-    });
-    if (!deletedActivity) {
-      await session.abortTransaction();
-      res.status(404).json({ message: "Activity not found" });
-      return;
-    }
-
-    await session.commitTransaction();
-    res.status(204).send(); // 204 No Content for successful deletes
-  } catch (error) {
-    await session.abortTransaction();
-    res.status(500).json({ error: error.message });
-  } finally {
-    session.endSession();
-  }
-};
-
-//Database Seeding
-export const seedDatabaseWithMultipleActivities = async (
-  req: CustomRequest,
-  res: Response
-) => {
-  const userId = req.user?.userId;
-  const activitiesData = req.body.activities; // Expecting an array of activities in the request body
-  const session = await mongoose.startSession();
-  try {
-    await session.startTransaction();
-    const user = await UserModel.findById(userId).session(session);
-    if (!user) {
-      throw new Error("User not found");
-    }
-    const isUserAdmin = user.role === "ADMIN";
-
-    for (const activityInput of activitiesData) {
-      const validationResult = activityValidationSchema.validate(activityInput);
-      if (validationResult.error) {
-        throw new Error(validationResult.error.message); // Consider accumulating errors for all activities instead
-      }
-
-      const activityData = {
-        ...validationResult.value,
-        slug: slugify(validationResult.value.name, {
-          lower: true,
-          strict: true,
-        }),
-        createdBy: userId,
-        isCreatedByAdmin: isUserAdmin,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      // Address
-      if (activityData.address) {
-        const addressDoc = await AddressModel.create([activityData.address], {
-          session,
-        });
-        activityData.address = addressDoc[0]._id;
-      }
-
-      // StartCoordinate
-      if (activityData.startCoordinate) {
-        const startCoordinateDoc = await StartCoordinateModel.create(
-          [activityData.startCoordinate],
-          { session }
-        );
-        activityData.startCoordinate = startCoordinateDoc[0]._id;
-      }
-
-      // EndCoordinate
-      if (activityData.endCoordinate) {
-        const endCoordinateDoc = await EndCoordinateModel.create(
-          [activityData.endCoordinate],
-          { session }
-        );
-        activityData.endCoordinate = endCoordinateDoc[0]._id;
-      }
-
-      // Create the activity
-      await ActivityModel.create([activityData], { session });
-    }
-
-    await session.commitTransaction();
-    res.status(201).json({
-      message: `${activitiesData.length} activities created successfully.`,
-    });
-  } catch (error) {
-    await session.abortTransaction();
-    res.status(500).json({ error: error.message });
-  } finally {
-    session.endSession();
-  }
-};

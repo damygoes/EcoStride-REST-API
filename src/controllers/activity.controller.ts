@@ -8,6 +8,7 @@ import {
   seedDatabaseWithMultipleActivities,
   updateActivity,
 } from "../services/activity/activity.service";
+import commentRouter from "./comment.controller";
 
 const activityRouter = express.Router();
 
@@ -24,5 +25,8 @@ activityRouter.post(
   userIsUserMiddleware,
   seedDatabaseWithMultipleActivities
 );
+
+// Mount the commentRouter for paths that involve comments on activities
+activityRouter.use("/:slug/comments", commentRouter);
 
 export default activityRouter;

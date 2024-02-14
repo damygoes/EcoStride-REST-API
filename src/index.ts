@@ -8,6 +8,7 @@ import http from "http";
 import mongoose from "mongoose";
 import activityRoute from "./controllers/activity.controller";
 import authenticateUserRoute from "./controllers/auth.controller";
+import commentRouter from "./controllers/comment.controller";
 import userRoute from "./controllers/user.controller";
 import { corsOptions } from "./utils/corsOptions";
 
@@ -26,6 +27,7 @@ app.use(compression());
 app.use("/api", authenticateUserRoute);
 app.use("/users", userRoute);
 app.use("/activities", activityRoute);
+app.use("/activities/:slug/comments", commentRouter); // Handles all comment-related routes, nested under activities
 
 // DB Connection
 mongoose

@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 
-const CommentSchema = new Schema(
+const ReplySchema = new Schema(
   {
     activitySlug: {
       type: String,
@@ -11,17 +11,13 @@ const CommentSchema = new Schema(
       ref: "User",
       required: true,
     },
+    parentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Comment",
+    },
     text: {
       type: String,
       required: true,
-    },
-    replies: {
-      type: [
-        {
-          type: Schema.Types.ObjectId,
-          ref: "Comment",
-        },
-      ],
     },
   },
   {
@@ -37,7 +33,7 @@ const CommentSchema = new Schema(
   }
 );
 
-CommentSchema.index({ activitySlug: 1 }); // Add index to activitySlug for faster querying
-const CommentModel = mongoose.model("Comment", CommentSchema);
+ReplySchema.index({ activitySlug: 1 }); // Add index to activitySlug for faster querying
+const ReplyModel = mongoose.model("Reply", ReplySchema);
 
-export { CommentModel };
+export { ReplyModel };

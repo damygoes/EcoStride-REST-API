@@ -1,5 +1,5 @@
 import express from "express";
-import { userIsUserMiddleware } from "../middlewares/userIsUser";
+import { isAuthenticated } from "../middlewares/isUserAuthenticated";
 import {
   createComment,
   deleteComment,
@@ -13,8 +13,8 @@ const commentRouter = express.Router({ mergeParams: true }); // Important for ac
 // :slug is accessible due to mergeParams: true
 commentRouter.get("/", getComments); // Fetch all comments for a specific activity
 commentRouter.get("/:id", getComment); // Fetch a specific comment for an activity
-commentRouter.post("/", userIsUserMiddleware, createComment); // Create a new comment for an activity
-commentRouter.patch("/:id", userIsUserMiddleware, updateComment); // Update an existing comment
-commentRouter.delete("/:id", userIsUserMiddleware, deleteComment); // Delete an existing comment
+commentRouter.post("/", isAuthenticated, createComment); // Create a new comment for an activity
+commentRouter.patch("/:id", isAuthenticated, updateComment); // Update an existing comment
+commentRouter.delete("/:id", isAuthenticated, deleteComment); // Delete an existing comment
 
 export default commentRouter;

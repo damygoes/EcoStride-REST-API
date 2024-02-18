@@ -71,7 +71,6 @@ const ActivitySchema = new Schema(
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      required: true,
     },
     isCreatedByAdmin: { type: Boolean, default: false },
   },

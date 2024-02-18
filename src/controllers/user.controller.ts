@@ -1,50 +1,67 @@
 import express from "express";
-import { userIsUserMiddleware } from "../middlewares/userIsUser";
+import { isAuthenticated } from "../middlewares/isUserAuthenticated";
 import {
+  deleteUserBucketListActivity,
+  deleteUserDoneActivity,
+  deleteUserLikedActivity,
   getUsersBucketListActivities,
   getUsersCreatedActivities,
   getUsersDoneActivities,
+  getUsersLikedActivities,
 } from "../services/activity/activity.service";
 import {
-  createUserProfile,
   deleteUserById,
-  deleteUserProfile,
+  getCurrentUser,
   getUserById,
-  getUserProfile,
   getUsers,
   updateUserById,
-  updateUserProfile,
 } from "../services/user/user.service";
 
 const userRouter = express.Router();
 
 // User
 userRouter.get("/", getUsers);
+userRouter.get("/current-user", isAuthenticated, getCurrentUser);
 userRouter.get("/:id", getUserById);
-userRouter.patch("/:id", userIsUserMiddleware, updateUserById);
-userRouter.delete("/:id", userIsUserMiddleware, deleteUserById);
-
-// User Profile
-userRouter.get("/:id/profile", userIsUserMiddleware, getUserProfile);
-userRouter.post("/:id/profile", userIsUserMiddleware, createUserProfile);
-userRouter.patch("/:id/profile", userIsUserMiddleware, updateUserProfile);
-userRouter.delete("/:id/profile", userIsUserMiddleware, deleteUserProfile);
+userRouter.patch("/:id", isAuthenticated, updateUserById);
+userRouter.delete("/:id", isAuthenticated, deleteUserById);
 
 // User Activity
+
 userRouter.get(
-  "/:id/my-activities",
-  userIsUserMiddleware,
-  getUsersCreatedActivities
-);
-userRouter.get(
-  "/:id/my-bucket-list",
-  userIsUserMiddleware,
+  "/:id/bucket-list",
+  isAuthenticated,
   getUsersBucketListActivities
 );
 userRouter.get(
-  "/:id/done-activities",
-  userIsUserMiddleware,
-  getUsersDoneActivities
+  "/:id/my-activities",
+  isAuthenticated,
+  getUsersCreatedActivities
+);
+userRouter.delete(
+  "/:id/bucket-list/:slug",
+  isAuthenticated,
+  deleteUserBucketListActivity
+);
+
+userRouter.get("/:id/done-activities", isAuthenticated, getUsersDoneActivities);
+
+userRouter.delete(
+  "/:id/done-activities/:slug",
+  isAuthenticated,
+  deleteUserDoneActivity
+);
+
+userRouter.get(
+  "/:id/liked-activities",
+  isAuthenticated,
+  getUsersLikedActivities
+);
+
+userRouter.delete(
+  "/:id/liked-activities/:slug",
+  isAuthenticated,
+  deleteUserLikedActivity
 );
 
 export default userRouter;

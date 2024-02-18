@@ -1,8 +1,41 @@
 import express from "express";
-import { authenticateUser } from "../services/auth/authentication.service";
+import passport from "passport";
 
-const router = express.Router();
+const authRouter = express.Router();
 
-router.post("/auth", authenticateUser);
+authRouter.get(
+  "/auth/google",
+  passport.authenticate("google", { scope: ["profile", "email"] })
+);
 
-export default router;
+authRouter.get(
+  "/auth/google/callback",
+  passport.authenticate("google", { failureRedirect: "/" }),
+  (req, res) => {
+    // Successful authentication, redirect home.
+    res.redirect("http://localhost:5173");
+  }
+);
+
+authRouter.post("/auth/logout", (req, res) => {
+  req.logout((err) => {
+    if (err) {
+      console.error("Error during logout:", err);
+      return res.status(500).json({ error: "Error logging out" });
+    }
+    if (req.session) {
+      req.session.destroy((error) => {
+        if (error) {
+          console.error("Error destroying session:", error);
+          return res.status(500).json({ error: "Error clearing session" });
+        }
+        // Send a response indicating logout was successful
+        res.json({ message: "Logout successful" });
+      });
+    } else {
+      res.json({ message: "Logout successful" });
+    }
+  });
+});
+
+export default authRouter;

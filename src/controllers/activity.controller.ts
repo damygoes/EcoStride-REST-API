@@ -1,11 +1,12 @@
 import express from "express";
-import { userIsUserMiddleware } from "../middlewares/userIsUser";
+import { isAuthenticated } from "../middlewares/isUserAuthenticated";
 import {
   createActivity,
   deleteActivity,
   getActivities,
   getActivity,
-  seedDatabaseWithMultipleActivities,
+  getActivityLikes,
+  handleUserActionOnActivity,
   updateActivity,
 } from "../services/activity/activity.service";
 import commentRouter from "./comment.controller";
@@ -15,16 +16,11 @@ const activityRouter = express.Router();
 // Activity
 activityRouter.get("/", getActivities);
 activityRouter.get("/:slug", getActivity);
-activityRouter.post("/", userIsUserMiddleware, createActivity);
-activityRouter.patch("/:slug", userIsUserMiddleware, updateActivity);
-activityRouter.delete("/:slug", userIsUserMiddleware, deleteActivity);
-
-// Database Seeding
-activityRouter.post(
-  "/seed",
-  userIsUserMiddleware,
-  seedDatabaseWithMultipleActivities
-);
+activityRouter.post("/", isAuthenticated, createActivity);
+activityRouter.patch("/:slug", isAuthenticated, updateActivity);
+activityRouter.delete("/:slug", isAuthenticated, deleteActivity);
+activityRouter.post("/:slug", isAuthenticated, handleUserActionOnActivity);
+activityRouter.get("/:slug/likes", getActivityLikes);
 
 // Mount the commentRouter for paths that involve comments on activities
 activityRouter.use("/:slug/comments", commentRouter);

@@ -5,20 +5,83 @@ import { CustomRequest } from "../../interfaces/customRequest";
 import { ActivityModel } from "../../models/Activity";
 import { BucketListModel } from "../../models/BucketList";
 import { DoneActivityModel } from "../../models/DoneActivity";
+import { LikeModel } from "../../models/Like";
 import { UserModel } from "../../models/User";
-import { Activity } from "../../types/Activity";
 import { activityValidationSchema } from "../../validations/activityValidator";
 
+const getAllDoneActivities = async () => {
+  try {
+    const activities = await DoneActivityModel.find();
+    return activities;
+  } catch (error) {
+    return { error: error.message };
+  }
+};
+
+const getAllLikedActivities = async () => {
+  try {
+    const activities = await LikeModel.find();
+    return activities;
+  } catch (error) {
+    return { error: error.message };
+  }
+};
+
+const getAllBucketListActivities = async () => {
+  try {
+    const activities = await BucketListModel.find();
+    return activities;
+  } catch (error) {
+    return { error: error.message };
+  }
+};
 export const getActivities = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  const { city, state, country, category } = req.query as {
+  const {
+    city,
+    state,
+    country,
+    category,
+    done = false,
+    liked = false,
+    bucketList = false,
+  } = req.query as {
     city?: string;
     state?: string;
     country?: string;
     category?: string;
+    done?: boolean;
+    liked?: boolean;
+    bucketList?: boolean;
   };
+
+  if (done) {
+    const doneActivities = await getAllDoneActivities();
+    if (!doneActivities) {
+      return res.status(404).json({ message: "Done activities not found" });
+    }
+    return res.json(doneActivities);
+  }
+
+  if (liked) {
+    const likedActivities = await getAllLikedActivities();
+    if (!likedActivities) {
+      return res.status(404).json({ message: "Liked activities not found" });
+    }
+    return res.json(likedActivities);
+  }
+
+  if (bucketList) {
+    const bucketListActivities = await getAllBucketListActivities();
+    if (!bucketListActivities) {
+      return res
+        .status(404)
+        .json({ message: "Bucket list activities not found" });
+    }
+    return res.json(bucketListActivities);
+  }
 
   // Initialize query object
   let query: any = {};
@@ -78,140 +141,57 @@ export const getActivity = async (
 export const getUsersCreatedActivities = async (
   req: CustomRequest,
   res: Response
-): Promise<void> => {
-  const userIdFromToken = req.user?.userId;
-
-  if (!userIdFromToken) {
-    res.status(403).json({ message: "User ID not found in token" });
-    return;
-  }
-
-  // Retrieve user role along with the user ID from the token
-  const user = await UserModel.findById(userIdFromToken);
-  if (!user) {
-    res.status(404).json({ message: "User not found" });
-    return;
-  }
-  const isUserAdmin = user.role === "ADMIN";
-
-  let query = {};
-
-  // If the user is not an admin, modify the query to fetch only their activities
-  if (!isUserAdmin) {
-    query = { createdBy: userIdFromToken };
-  }
-
-  try {
-    const activities = await ActivityModel.find(query);
-    res.json(activities);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-export const getUsersBucketListActivities = async (
-  req: CustomRequest,
-  res: Response
 ): Promise<Response<any, Record<string, any>>> => {
-  const userIdFromToken = req.user?.userId;
+  const userId = req.user?._id; // Assuming req.user is populated from session
 
-  if (!userIdFromToken) {
-    res.status(403).json({ message: "User ID not found in token" });
-    return;
-  }
-
-  // Retrieve user role along with the user ID from the token
-  const user = await UserModel.findById(userIdFromToken);
-  if (!user) {
-    res.status(404).json({ message: "User not found" });
-    return;
-  }
-  const isUserAdmin = user.role === "ADMIN";
-
-  let query = {};
-
-  // If the user is not an admin, modify the query to fetch only their activities
-  if (!isUserAdmin) {
-    query = { userId: userIdFromToken };
+  if (!userId) {
+    return res.status(403).json({ message: "Authentication required" });
   }
 
   try {
-    // Find bucket list items for the user
-    const bucketListItems = await BucketListModel.find(query).lean(); // Using lean() for performance, as we're not modifying the bucket list items here
-    if (bucketListItems.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No bucket list items found for the user" });
-    }
-
-    // Extract activityIds from the bucket list items
-    const activityIds = bucketListItems.map((item) => item.activityId);
-
-    // Find and populate the activities in a single query
-    const activities = await ActivityModel.find({ _id: { $in: activityIds } })
-      .populate("address")
-      .populate("startCoordinate")
-      .populate("endCoordinate")
-      .lean(); // Using lean() for performance, as we're not modifying the activities here
-
-    // Return the populated activities
+    const activities = await ActivityModel.find({ createdBy: userId });
     res.json(activities);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-export const getUsersDoneActivities = async (
-  req: CustomRequest,
-  res: Response
-): Promise<Response<any, Record<string, any>>> => {
-  const userIdFromToken = req.user?.userId;
+// export const getUsersCreatedActivities = async (
+//   req: CustomRequest,
+//   res: Response
+// ): Promise<void> => {
+//   const userSessionId = req.user?._id.toString();
 
-  if (!userIdFromToken) {
-    res.status(403).json({ message: "User ID not found in token" });
-    return;
-  }
+//   if (!userSessionId) {
+//     res.status(403).json({ message: "User ID not found in token" });
+//     return;
+//   }
 
-  // Retrieve user role along with the user ID from the token
-  const user = await UserModel.findById(userIdFromToken);
-  if (!user) {
-    res.status(404).json({ message: "User not found" });
-    return;
-  }
-  const isUserAdmin = user.role === "ADMIN";
+//   // Retrieve user role along with the user ID from the token
+//   const user = await UserModel.findById(userSessionId);
+//   if (!user) {
+//     res.status(404).json({ message: "User not found" });
+//     return;
+//   }
+//   const isUserAdmin = user.role === "ADMIN";
 
-  let query = {};
+//   let query = {};
 
-  // If the user is not an admin, modify the query to fetch only their activities
-  if (!isUserAdmin) {
-    query = { userId: userIdFromToken };
-  }
+//   // If the user is not an admin, modify the query to fetch only their activities
+//   if (!isUserAdmin) {
+//     query = { createdBy: userSessionId };
+//   }
 
-  try {
-    const doneActivities = await DoneActivityModel.find(query).lean();
-
-    if (doneActivities.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No done activities found for the user" });
-    }
-
-    const activityIds = doneActivities.map((item) => item.activityId);
-
-    const activities = await ActivityModel.find({ _id: { $in: activityIds } })
-      .populate("address")
-      .populate("startCoordinate")
-      .populate("endCoordinate")
-      .lean();
-
-    res.json(activities);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
+//   try {
+//     const activities = await ActivityModel.find(query);
+//     res.json(activities);
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
 
 export const createActivity = async (req: CustomRequest, res: Response) => {
-  const userId = req.user?.userId;
+  const userId = req.user?._id.toString();
 
   // Validate request body first
   const validationResult = activityValidationSchema.validate(req.body);
@@ -261,11 +241,11 @@ export const updateActivity = async (
   res: Response
 ): Promise<Response<any, Record<string, any>>> => {
   const { slug } = req.params;
-  const userIdFromToken = req.user?.userId;
+  const userSessionId = req.user?._id.toString();
 
   try {
     // Retrieve user role along with the user ID from the token
-    const user = await UserModel.findById(userIdFromToken);
+    const user = await UserModel.findById(userSessionId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -278,7 +258,7 @@ export const updateActivity = async (
     }
 
     // Check if the user is the creator or an admin
-    if (!isUserAdmin && activity.createdBy.toString() !== userIdFromToken) {
+    if (!isUserAdmin && activity.createdBy.toString() !== userSessionId) {
       return res
         .status(403)
         .json({ message: "You are not authorized to update this activity" });
@@ -329,11 +309,11 @@ export const deleteActivity = async (
   res: Response
 ): Promise<Response<any, Record<string, any>>> => {
   const { slug } = req.params;
-  const userIdFromToken = req.user?.userId;
+  const userSessionId = req.user?._id.toString();
 
   try {
     // Retrieve user role along with the user ID from the token
-    const user = await UserModel.findById(userIdFromToken);
+    const user = await UserModel.findById(userSessionId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -346,7 +326,7 @@ export const deleteActivity = async (
     }
 
     // Check if the user is the creator or an admin
-    if (!isUserAdmin && activity.createdBy.toString() !== userIdFromToken) {
+    if (!isUserAdmin && activity.createdBy.toString() !== userSessionId) {
       return res
         .status(403)
         .json({ message: "You are not authorized to delete this activity" });
@@ -365,54 +345,473 @@ export const deleteActivity = async (
   }
 };
 
-//Database Seeding
-export const seedDatabaseWithMultipleActivities = async (
+export const getUsersBucketListActivities = async (
   req: CustomRequest,
   res: Response
-) => {
-  const userId = req.user?.userId;
-  const activitiesData = req.body.activities; // Expecting an array of activities in the request body
+): Promise<Response<any, Record<string, any>>> => {
+  const userSessionId = req.user?._id.toString();
+
+  if (!userSessionId) {
+    res.status(403).json({ message: "Unauthorized" });
+    return;
+  }
+
+  // Retrieve user role along with the user ID from the token
+  const user = await UserModel.findById(userSessionId);
+  if (!user) {
+    res.status(404).json({ message: "User not found" });
+    return;
+  }
+  const isUserAdmin = user.role === "ADMIN";
+
+  let query = {};
+
+  // If the user is not an admin, modify the query to fetch only their activities
+  if (!isUserAdmin) {
+    query = { userId: userSessionId };
+  }
 
   try {
-    const user = await UserModel.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    // Find bucket list items for the user
+    const bucketListItems = await BucketListModel.find(query).lean(); // Using lean() for performance, as we're not modifying the bucket list items here
+    if (bucketListItems.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No bucket list items found for the user" });
     }
-    const isUserAdmin = user.role === "ADMIN";
 
-    // Validate and prepare all activities data before insertion
-    const preparedActivities = activitiesData.map(
-      (activityInput: Activity[]) => {
-        const validationResult =
-          activityValidationSchema.validate(activityInput);
-        if (validationResult.error) {
-          throw new Error(validationResult.error.message); // This will exit the loop and catch block will catch it
-        }
+    // Extract activityIds from the bucket list items
+    const activityIds = bucketListItems.map((item) => item.activityId);
 
-        return {
-          ...validationResult.value,
-          slug: slugify(validationResult.value.name, {
-            lower: true,
-            strict: true,
-          }),
-          createdBy: userId,
-          isCreatedByAdmin: isUserAdmin,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-      }
-    );
+    // Find and populate the activities in a single query
+    const activities = await ActivityModel.find({ _id: { $in: activityIds } })
+      .populate("address")
+      .populate("startCoordinate")
+      .populate("endCoordinate")
+      .lean(); // Using lean() for performance, as we're not modifying the activities here
 
-    // Bulk insert the prepared activities
-    await ActivityModel.insertMany(preparedActivities);
-
-    res.status(201).json({
-      message: `${preparedActivities.length} activities created successfully.`,
-    });
+    // Return the populated activities
+    res.json(activities);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const getUsersLikedActivities = async (
+  req: CustomRequest,
+  res: Response
+): Promise<Response<any, Record<string, any>>> => {
+  const userSessionId = req.user?._id.toString();
+
+  if (!userSessionId) {
+    res.status(403).json({ message: "User ID not found in token" });
+    return;
+  }
+
+  // Retrieve user role along with the user ID from the token
+  const user = await UserModel.findById(userSessionId);
+  if (!user) {
+    res.status(404).json({ message: "User not found" });
+    return;
+  }
+  const isUserAdmin = user.role === "ADMIN";
+
+  let query = {};
+
+  // If the user is not an admin, modify the query to fetch only their activities
+  if (!isUserAdmin) {
+    query = { userId: userSessionId };
+  }
+
+  try {
+    // Find liked activities for the user
+    const likedActivities = await LikeModel.find(query).lean(); // Using lean() for performance, as we're not modifying the liked activities here
+
+    if (likedActivities.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No liked activities found for the user" });
+    }
+
+    // Extract activityIds from the liked activities
+    const activityIds = likedActivities.map((item) => item.activityId);
+
+    // Find and populate the activities in a single query
+    const activities = await ActivityModel.find({ _id: { $in: activityIds } })
+      .populate("address")
+      .populate("startCoordinate")
+      .populate("endCoordinate")
+      .lean(); // Using lean() for performance, as we're not modifying the activities here
+
+    // Return the populated activities
+    res.json(activities);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getUsersDoneActivities = async (
+  req: CustomRequest,
+  res: Response
+): Promise<Response<any, Record<string, any>>> => {
+  const userSessionId = req.user?._id.toString();
+
+  if (!userSessionId) {
+    res.status(403).json({ message: "User ID not found in token" });
+    return;
+  }
+
+  // Retrieve user role along with the user ID from the token
+  const user = await UserModel.findById(userSessionId);
+  if (!user) {
+    res.status(404).json({ message: "User not found" });
+    return;
+  }
+  const isUserAdmin = user.role === "ADMIN";
+
+  let query = {};
+
+  // If the user is not an admin, modify the query to fetch only their activities
+  if (!isUserAdmin) {
+    query = { userId: userSessionId };
+  }
+
+  try {
+    const doneActivities = await DoneActivityModel.find(query).lean();
+
+    if (doneActivities.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No done activities found for the user" });
+    }
+
+    const activityIds = doneActivities.map((item) => item.activityId);
+
+    const activities = await ActivityModel.find({ _id: { $in: activityIds } })
+      .populate("address")
+      .populate("startCoordinate")
+      .populate("endCoordinate")
+      .lean();
+
+    res.json(activities);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const handleUserActionOnActivity = async (
+  req: CustomRequest,
+  res: Response
+): Promise<Response<any, Record<string, any>>> => {
+  const { slug } = req.params;
+  const userSessionId = req.user?._id.toString();
+  const { addToBucketList, alreadyCompleted, like } = req.query as {
+    addToBucketList?: boolean;
+    alreadyCompleted?: boolean;
+    like?: boolean;
+  };
+
+  try {
+    const user = await UserModel.findById(userSessionId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Find activity by slug to authorize the deletion
+    const activity = await ActivityModel.findOne({ slug: slug });
+    if (!activity) {
+      return res.status(404).json({ message: "Activity not found" });
+    }
+
+    if (activity && addToBucketList) {
+      // Add activity to user's bucket list
+      const bucketListItem = await BucketListModel.findOne({
+        activityId: activity._id,
+        userId: userSessionId,
+      });
+
+      if (bucketListItem) {
+        return res
+          .status(409)
+          .json({ message: "Activity already exists in user's bucket list" });
+      }
+
+      const newBucketListItem = await BucketListModel.create({
+        activityId: activity._id,
+        userId: userSessionId,
+        addedAt: new Date(),
+      });
+
+      return res.status(201).json(newBucketListItem);
+    }
+
+    if (activity && alreadyCompleted) {
+      // Add activity to user's done activities
+      const doneActivity = await DoneActivityModel.findOne({
+        activityId: activity._id,
+        userId: userSessionId,
+      });
+
+      if (doneActivity) {
+        return res.status(409).json({
+          message: "Activity already exists in user's done activities",
+        });
+      }
+
+      const newDoneActivity = await DoneActivityModel.create({
+        activityId: activity._id,
+        userId: userSessionId,
+        completedAt: new Date(),
+      });
+
+      return res.status(201).json(newDoneActivity);
+    }
+
+    if (activity && like) {
+      // Add user to the likes array
+      const likedActivity = await LikeModel.findOne({
+        activityId: activity._id,
+        userId: userSessionId,
+      });
+
+      if (likedActivity) {
+        return res
+          .status(409)
+          .json({ message: "User already liked the activity" });
+      }
+
+      const newLike = await LikeModel.create({
+        activityId: activity._id,
+        userId: userSessionId,
+        likedAt: new Date(),
+      });
+
+      return res.status(201).json(newLike);
+    }
+
+    // res.status(200).json(updatedActivity);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getActivityLikes = async (
+  req: Request,
+  res: Response
+): Promise<Response<any, Record<string, any>>> => {
+  const { slug } = req.params;
+
+  try {
+    const activity = await ActivityModel.findOne({ slug });
+    if (!activity) {
+      return res.status(404).json({ message: "Activity not found" });
+    }
+
+    const likes = await LikeModel.find({ activityId: activity._id });
+
+    res.json(likes);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const deleteUserBucketListActivity = async (
+  req: CustomRequest,
+  res: Response
+): Promise<Response<any, Record<string, any>>> => {
+  const { slug } = req.params;
+  const userSessionId = req.user?._id.toString();
+
+  try {
+    // Retrieve user role along with the user ID from the token
+    const user = await UserModel.findById(userSessionId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const isUserAdmin = user && user.role === "ADMIN";
+
+    // Find activity by slug to authorize the deletion
+    const activity = await ActivityModel.findOne({ slug: slug });
+    if (!activity) {
+      return res.status(404).json({ message: "Activity not found" });
+    }
+
+    // Check if the user has the activity in their bucket list
+    const bucketListItem = await BucketListModel.findOne({
+      activityId: activity._id,
+      userId: userSessionId,
+    });
+
+    if (!bucketListItem) {
+      return res
+        .status(404)
+        .json({ message: "Activity not found in user's bucket list" });
+    }
+
+    // Proceed to delete the activity from the user's bucket list
+    const deletedBucketListItem = await BucketListModel.deleteOne({
+      activityId: activity._id,
+      userId: userSessionId,
+    });
+    if (deletedBucketListItem.deletedCount === 0) {
+      // No document found or deleted
+      return res
+        .status(404)
+        .json({ message: "Activity not found in bucket list" });
+    }
+
+    res.status(204).send(); // 204 No Content for successful deletion
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const deleteUserDoneActivity = async (
+  req: CustomRequest,
+  res: Response
+): Promise<Response<any, Record<string, any>>> => {
+  const { slug } = req.params;
+  const userSessionId = req.user?._id.toString();
+
+  try {
+    // Retrieve user role along with the user ID from the token
+    const user = await UserModel.findById(userSessionId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Find activity by slug to authorize the deletion
+    const activity = await ActivityModel.findOne({ slug: slug });
+    if (!activity) {
+      return res.status(404).json({ message: "Activity not found" });
+    }
+
+    // Check if the user has the activity in their done activities
+    const doneActivity = await DoneActivityModel.findOne({
+      activityId: activity._id,
+      userId: userSessionId,
+    });
+
+    if (!doneActivity) {
+      return res
+        .status(404)
+        .json({ message: "Activity not found in user's done activities" });
+    }
+
+    // Proceed to delete the activity from the user's done activities
+    const deletedDoneActivity = await DoneActivityModel.deleteOne({
+      activityId: activity._id,
+      userId: userSessionId,
+    });
+    if (deletedDoneActivity.deletedCount === 0) {
+      // No document found or deleted
+      return res
+        .status(404)
+        .json({ message: "Activity not found in done activities" });
+    }
+
+    res.status(204).send(); // 204 No Content for successful deletion
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const deleteUserLikedActivity = async (
+  req: CustomRequest,
+  res: Response
+): Promise<Response<any, Record<string, any>>> => {
+  const { slug } = req.params;
+  const userSessionId = req.user?._id.toString();
+
+  try {
+    // Retrieve user role along with the user ID from the token
+    const user = await UserModel.findById(userSessionId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Find activity by slug to authorize the deletion
+    const activity = await ActivityModel.findOne({ slug: slug });
+    if (!activity) {
+      return res.status(404).json({ message: "Activity not found" });
+    }
+
+    // Check if the user has liked the activity
+    const likedActivity = await LikeModel.findOne({
+      activityId: activity._id,
+      userId: userSessionId,
+    });
+
+    if (!likedActivity) {
+      return res
+        .status(404)
+        .json({ message: "User has not liked the activity" });
+    }
+
+    // Proceed to delete the like
+    const deletedLike = await LikeModel.deleteOne({
+      activityId: activity._id,
+      userId: userSessionId,
+    });
+    if (deletedLike.deletedCount === 0) {
+      // No document found or deleted
+      return res.status(404).json({ message: "Like not found" });
+    }
+
+    res.status(204).send(); // 204 No Content for successful deletion
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+//Database Seeding
+// export const seedDatabaseWithMultipleActivities = async (
+//   req: CustomRequest,
+//   res: Response
+// ) => {
+//   const userId = req.user?._id.toString();
+//   const activitiesData = req.body.activities; // Expecting an array of activities in the request body
+
+//   try {
+//     const user = await UserModel.findById(userId);
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+//     const isUserAdmin = user.role === "ADMIN";
+
+//     // Validate and prepare all activities data before insertion
+//     const preparedActivities = activitiesData.map(
+//       (activityInput: Activity[]) => {
+//         const validationResult =
+//           activityValidationSchema.validate(activityInput);
+//         if (validationResult.error) {
+//           throw new Error(validationResult.error.message); // This will exit the loop and catch block will catch it
+//         }
+
+//         return {
+//           ...validationResult.value,
+//           slug: slugify(validationResult.value.name, {
+//             lower: true,
+//             strict: true,
+//           }),
+//           createdBy: userId,
+//           isCreatedByAdmin: isUserAdmin,
+//           createdAt: new Date(),
+//           updatedAt: new Date(),
+//         };
+//       }
+//     );
+
+//     // Bulk insert the prepared activities
+//     await ActivityModel.insertMany(preparedActivities);
+
+//     res.status(201).json({
+//       message: `${preparedActivities.length} activities created successfully.`,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
 
 /**
  * EXPLANATION OF CODE on createActivity

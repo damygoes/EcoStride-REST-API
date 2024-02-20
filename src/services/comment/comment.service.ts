@@ -14,10 +14,10 @@ export const createComment = async (
   try {
     session.startTransaction(); // Start the transaction
 
-    const userIdFromToken = req.user?.userId;
+    const userSessionId = req.user?._id;
     const { slug } = req.params;
 
-    if (!userIdFromToken) {
+    if (!userSessionId) {
       await session.abortTransaction(); // Abort the transaction
       session.endSession(); // End the session
       return res.status(403).json({ message: "Unauthorized" });
@@ -43,7 +43,7 @@ export const createComment = async (
       const newReplyData = {
         ...req.body,
         activitySlug: slug,
-        userId: userIdFromToken,
+        userId: userSessionId,
       };
 
       // Create the reply
@@ -64,7 +64,7 @@ export const createComment = async (
     } else {
       // Logic to handle new comment creation
       const newComment = await CommentModel.create(
-        [{ ...req.body, activitySlug: slug, userId: userIdFromToken }],
+        [{ ...req.body, activitySlug: slug, userId: userSessionId }],
         { session: session }
       );
       await session.commitTransaction(); // Commit the transaction
@@ -83,10 +83,10 @@ export const updateComment = async (
   res: Response
 ): Promise<Response<any, Record<string, any>>> => {
   try {
-    const userIdFromToken = req.user?.userId;
+    const userSessionId = req.user?._id;
     const { id } = req.params; // Comment ID from URL parameters
 
-    if (!userIdFromToken) {
+    if (!userSessionId) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
@@ -109,17 +109,17 @@ export const updateComment = async (
 
 export const deleteComment = async (req: CustomRequest, res: Response) => {
   try {
-    const userIdFromToken = req.user?.userId;
+    const userSessionId = req.user?._id;
     const { id } = req.params;
 
-    if (!userIdFromToken) {
+    if (!userSessionId) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
     // First, delete the comment itself
     const deletedComment = await CommentModel.findOneAndDelete({
       _id: id,
-      userId: userIdFromToken,
+      userId: userSessionId,
     });
 
     if (!deletedComment) {

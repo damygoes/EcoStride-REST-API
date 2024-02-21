@@ -13,9 +13,8 @@ import activityRoute from "./controllers/activity.controller";
 import authRouter from "./controllers/auth.controller";
 import commentRouter from "./controllers/comment.controller";
 import userRoute from "./controllers/user.controller";
-import "./strategies/google-strategy"; // Assume this imports your Passport configuration
+import "./strategies/google-strategy";
 import { corsOptions } from "./utils/corsOptions";
-
 dotenv.config();
 
 const PORT = process.env.PORT || 8000;

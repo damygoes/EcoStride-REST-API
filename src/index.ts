@@ -32,13 +32,11 @@ app.use(
     saveUninitialized: true,
     store: MongoStore.create({
       mongoUrl: process.env.MONGO_CONNECTION_URL,
-      // Additional options may be required based on your setup
     }),
     cookie: {
       httpOnly: true,
       sameSite: "lax",
-      secure: false, // Ensure secure is true and using HTTPS in production
-      // secure: process.env.NODE_ENV === "production", // Ensure secure is true and using HTTPS in production
+      secure: true, // Ensure secure is true and using HTTPS in production
     },
   })
 );

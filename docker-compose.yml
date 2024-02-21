@@ -1,0 +1,29 @@
+version: "3.8"
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000" # Expose the port the app runs on
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - ./.env # Path to .env file
+    depends_on:
+      - mongo
+    volumes:
+      - .:/app # Mount app code into the container
+      - /app/node_modules # Use a volume for node_modules to avoid overriding with the local one
+    command: npm start # Command to start app
+
+  mongo:
+    image: mongo:latest
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    ports:
+      - "27017:27017" # Default MongoDB port
+    volumes:
+      - mongo-data:/data/db # This persists MongoDB data
+
+volumes:
+  mongo-data: # Define the volume for MongoDB persistence

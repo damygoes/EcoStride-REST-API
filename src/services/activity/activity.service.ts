@@ -1,9 +1,11 @@
 import { Request, Response } from "express";
 import slugify from "slugify";
 
+import { startSession } from "mongoose";
 import { CustomRequest } from "../../interfaces/customRequest";
 import { ActivityModel } from "../../models/Activity";
 import { BucketListModel } from "../../models/BucketList";
+import { CommentModel } from "../../models/Comment";
 import { DoneActivityModel } from "../../models/DoneActivity";
 import { LikeModel } from "../../models/Like";
 import { UserModel } from "../../models/User";
@@ -94,16 +96,8 @@ export const getActivities = async (
 
   // These are fields to exclude in the response. "Projection" is used to achieve this in MongoDB. This is optional but useful for performance.
   const projection = {
-    description: 0,
-    minimumGrade: 0,
-    maximumGrade: 0,
-    difficultyLevel: 0,
-    routeType: 0,
-    tags: 0,
     createdAt: 0,
     updatedAt: 0,
-    startCoordinate: 0,
-    endCoordinate: 0,
     createdBy: 0,
     isCreatedByAdmin: 0,
   };
@@ -142,56 +136,22 @@ export const getUsersCreatedActivities = async (
   req: CustomRequest,
   res: Response
 ): Promise<Response<any, Record<string, any>>> => {
-  const userId = req.user?._id; // Assuming req.user is populated from session
+  const userSessionId = req.user?._id;
 
-  if (!userId) {
+  if (!userSessionId) {
     return res.status(403).json({ message: "Authentication required" });
   }
 
   try {
-    const activities = await ActivityModel.find({ createdBy: userId });
+    const activities = await ActivityModel.find({ createdBy: userSessionId });
     res.json(activities);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-// export const getUsersCreatedActivities = async (
-//   req: CustomRequest,
-//   res: Response
-// ): Promise<void> => {
-//   const userSessionId = req.user?._id.toString();
-
-//   if (!userSessionId) {
-//     res.status(403).json({ message: "User ID not found in token" });
-//     return;
-//   }
-
-//   // Retrieve user role along with the user ID from the token
-//   const user = await UserModel.findById(userSessionId);
-//   if (!user) {
-//     res.status(404).json({ message: "User not found" });
-//     return;
-//   }
-//   const isUserAdmin = user.role === "ADMIN";
-
-//   let query = {};
-
-//   // If the user is not an admin, modify the query to fetch only their activities
-//   if (!isUserAdmin) {
-//     query = { createdBy: userSessionId };
-//   }
-
-//   try {
-//     const activities = await ActivityModel.find(query);
-//     res.json(activities);
-//   } catch (error) {
-//     res.status(500).json({ error: error.message });
-//   }
-// };
-
 export const createActivity = async (req: CustomRequest, res: Response) => {
-  const userId = req.user?._id.toString();
+  const userSessionId = req.user?._id.toString();
 
   // Validate request body first
   const validationResult = activityValidationSchema.validate(req.body);
@@ -200,7 +160,7 @@ export const createActivity = async (req: CustomRequest, res: Response) => {
   }
 
   try {
-    const user = await UserModel.findById(userId);
+    const user = await UserModel.findById(userSessionId);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -222,7 +182,7 @@ export const createActivity = async (req: CustomRequest, res: Response) => {
     const activityData = {
       ...validationResult.value,
       slug,
-      createdBy: userId,
+      createdBy: userSessionId,
       isCreatedByAdmin: isUserAdmin,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -303,7 +263,6 @@ export const updateActivity = async (
   }
 };
 
-//TODO: expand later to delete all related bucket list, done activities, comments and likes related to the activity
 export const deleteActivity = async (
   req: CustomRequest,
   res: Response
@@ -311,39 +270,102 @@ export const deleteActivity = async (
   const { slug } = req.params;
   const userSessionId = req.user?._id.toString();
 
+  // Start a session and transaction
+  const session = await startSession();
   try {
+    session.startTransaction();
+
     // Retrieve user role along with the user ID from the token
-    const user = await UserModel.findById(userSessionId);
+    const user = await UserModel.findById(userSessionId).session(session);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
     const isUserAdmin = user && user.role === "ADMIN";
 
     // Find activity by slug to authorize the deletion
-    const activity = await ActivityModel.findOne({ slug: slug });
+    const activity = await ActivityModel.findOne({ slug: slug }).session(
+      session
+    );
     if (!activity) {
       return res.status(404).json({ message: "Activity not found" });
     }
 
     // Check if the user is the creator or an admin
     if (!isUserAdmin && activity.createdBy.toString() !== userSessionId) {
+      await session.abortTransaction();
       return res
         .status(403)
         .json({ message: "You are not authorized to delete this activity" });
     }
 
-    // Proceed to delete the activity
-    const deletedActivity = await ActivityModel.deleteOne({ slug: slug });
+    // Proceed to delete the activity and related documents
+    const deletedActivity = await ActivityModel.deleteOne({
+      slug: slug,
+    }).session(session);
     if (deletedActivity.deletedCount === 0) {
       // No document found or deleted
+      await session.abortTransaction();
       return res.status(404).json({ message: "Activity not found" });
     }
 
+    // Delete related documents from other collections
+    await BucketListModel.deleteMany({ activitySlug: slug }).session(session);
+    await DoneActivityModel.deleteMany({ activitySlug: slug }).session(session);
+    await CommentModel.deleteMany({ activitySlug: slug }).session(session);
+    await LikeModel.deleteMany({ activitySlug: slug }).session(session);
+
+    // Commit the transaction
+    await session.commitTransaction();
+    session.endSession();
     res.status(204).send(); // 204 No Content for successful deletion
   } catch (error) {
+    // Abort the transaction in case of error
+    await session.abortTransaction();
+    session.endSession();
     res.status(500).json({ error: error.message });
   }
 };
+
+// export const deleteActivity = async (
+//   req: CustomRequest,
+//   res: Response
+// ): Promise<Response<any, Record<string, any>>> => {
+//   const { slug } = req.params;
+//   const userSessionId = req.user?._id.toString();
+
+//   try {
+//     // Retrieve user role along with the user ID from the token
+//     const user = await UserModel.findById(userSessionId);
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+//     const isUserAdmin = user && user.role === "ADMIN";
+
+//     // Find activity by slug to authorize the deletion
+//     const activity = await ActivityModel.findOne({ slug: slug });
+//     if (!activity) {
+//       return res.status(404).json({ message: "Activity not found" });
+//     }
+
+//     // Check if the user is the creator or an admin
+//     if (!isUserAdmin && activity.createdBy.toString() !== userSessionId) {
+//       return res
+//         .status(403)
+//         .json({ message: "You are not authorized to delete this activity" });
+//     }
+
+//     // Proceed to delete the activity
+//     const deletedActivity = await ActivityModel.deleteOne({ slug: slug });
+//     if (deletedActivity.deletedCount === 0) {
+//       // No document found or deleted
+//       return res.status(404).json({ message: "Activity not found" });
+//     }
+
+//     res.status(204).send(); // 204 No Content for successful deletion
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
 
 export const getUsersBucketListActivities = async (
   req: CustomRequest,
@@ -588,8 +610,6 @@ export const handleUserActionOnActivity = async (
 
       return res.status(201).json(newLike);
     }
-
-    // res.status(200).json(updatedActivity);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -763,56 +783,6 @@ export const deleteUserLikedActivity = async (
     res.status(500).json({ error: error.message });
   }
 };
-
-//Database Seeding
-// export const seedDatabaseWithMultipleActivities = async (
-//   req: CustomRequest,
-//   res: Response
-// ) => {
-//   const userId = req.user?._id.toString();
-//   const activitiesData = req.body.activities; // Expecting an array of activities in the request body
-
-//   try {
-//     const user = await UserModel.findById(userId);
-//     if (!user) {
-//       return res.status(404).json({ message: "User not found" });
-//     }
-//     const isUserAdmin = user.role === "ADMIN";
-
-//     // Validate and prepare all activities data before insertion
-//     const preparedActivities = activitiesData.map(
-//       (activityInput: Activity[]) => {
-//         const validationResult =
-//           activityValidationSchema.validate(activityInput);
-//         if (validationResult.error) {
-//           throw new Error(validationResult.error.message); // This will exit the loop and catch block will catch it
-//         }
-
-//         return {
-//           ...validationResult.value,
-//           slug: slugify(validationResult.value.name, {
-//             lower: true,
-//             strict: true,
-//           }),
-//           createdBy: userId,
-//           isCreatedByAdmin: isUserAdmin,
-//           createdAt: new Date(),
-//           updatedAt: new Date(),
-//         };
-//       }
-//     );
-
-//     // Bulk insert the prepared activities
-//     await ActivityModel.insertMany(preparedActivities);
-
-//     res.status(201).json({
-//       message: `${preparedActivities.length} activities created successfully.`,
-//     });
-//   } catch (error) {
-//     res.status(500).json({ error: error.message });
-//   }
-// };
-
 /**
  * EXPLANATION OF CODE on createActivity
  * 

@@ -13,7 +13,7 @@ authRouter.get(
   passport.authenticate("google", { failureRedirect: "/" }),
   (req, res) => {
     // Successful authentication, redirect home.
-    res.redirect("http://localhost:5173");
+    res.redirect("https://eco-stride.vercel.app");
   }
 );
 

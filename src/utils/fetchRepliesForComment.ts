@@ -1,6 +1,5 @@
-import { ReplyModel } from "../models/Reply";
-import { TransformedCommentUser } from "../types/Comment";
-import { Reply } from "../types/Reply";
+import { TransformedCommentUser } from "../models/Comment";
+import { Reply, ReplyModel } from "../models/Reply";
 
 export const fetchRepliesForComment = async (
   commentId: string

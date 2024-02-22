@@ -1,4 +1,5 @@
 import express from "express";
+import { CustomRequest } from "../interfaces/customRequest";
 import { isAuthenticated } from "../middlewares/isUserAuthenticated";
 import {
   deleteUserBucketListActivity,
@@ -23,45 +24,52 @@ const userRouter = express.Router();
 userRouter.get("/", getUsers);
 userRouter.get("/current-user", isAuthenticated, getCurrentUser);
 userRouter.get("/:id", getUserById);
-userRouter.patch("/:id", isAuthenticated, updateUserById);
-userRouter.delete("/:id", isAuthenticated, deleteUserById);
+userRouter.patch("/:id", isAuthenticated, (req, res) => {
+  const customReq = req as CustomRequest;
+  updateUserById(customReq, res);
+});
+userRouter.delete("/:id", isAuthenticated, (req, res) => {
+  const customReq = req as CustomRequest;
+  deleteUserById(customReq, res);
+});
 
 // User Activity
 
-userRouter.get(
-  "/:id/bucket-list",
-  isAuthenticated,
-  getUsersBucketListActivities
-);
-userRouter.get(
-  "/:id/my-activities",
-  isAuthenticated,
-  getUsersCreatedActivities
-);
-userRouter.delete(
-  "/:id/bucket-list/:slug",
-  isAuthenticated,
-  deleteUserBucketListActivity
-);
+userRouter.get("/:id/bucket-list", isAuthenticated, (req, res) => {
+  const customReq = req as CustomRequest;
+  getUsersBucketListActivities(customReq, res);
+});
+userRouter.get("/:id/my-activities", isAuthenticated, (req, res) => {
+  const customReq = req as CustomRequest;
+  getUsersCreatedActivities(customReq, res);
+});
+userRouter.delete("/:id/bucket-list/:slug", isAuthenticated, (req, res) => {
+  const customReq = req as CustomRequest;
+  deleteUserBucketListActivity(customReq, res);
+});
 
-userRouter.get("/:id/done-activities", isAuthenticated, getUsersDoneActivities);
+userRouter.get("/:id/done-activities", isAuthenticated, (req, res) => {
+  const customReq = req as CustomRequest;
+  getUsersDoneActivities(customReq, res);
+});
 
-userRouter.delete(
-  "/:id/done-activities/:slug",
-  isAuthenticated,
-  deleteUserDoneActivity
-);
+userRouter.delete("/:id/done-activities/:slug", isAuthenticated, (req, res) => {
+  const customReq = req as CustomRequest;
+  deleteUserDoneActivity(customReq, res);
+});
 
-userRouter.get(
-  "/:id/liked-activities",
-  isAuthenticated,
-  getUsersLikedActivities
-);
+userRouter.get("/:id/liked-activities", isAuthenticated, (req, res) => {
+  const customReq = req as CustomRequest;
+  getUsersLikedActivities(customReq, res);
+});
 
 userRouter.delete(
   "/:id/liked-activities/:slug",
   isAuthenticated,
-  deleteUserLikedActivity
+  (req, res) => {
+    const customReq = req as CustomRequest;
+    deleteUserLikedActivity(customReq, res);
+  }
 );
 
 export default userRouter;

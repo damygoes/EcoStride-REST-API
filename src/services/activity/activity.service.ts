@@ -16,7 +16,8 @@ const getAllDoneActivities = async () => {
     const activities = await DoneActivityModel.find();
     return activities;
   } catch (error) {
-    return { error: error.message };
+    const message = (error as Error).message;
+    return { error: message };
   }
 };
 
@@ -25,7 +26,8 @@ const getAllLikedActivities = async () => {
     const activities = await LikeModel.find();
     return activities;
   } catch (error) {
-    return { error: error.message };
+    const message = (error as Error).message;
+    return { error: message };
   }
 };
 
@@ -34,13 +36,14 @@ const getAllBucketListActivities = async () => {
     const activities = await BucketListModel.find();
     return activities;
   } catch (error) {
-    return { error: error.message };
+    const message = (error as Error).message;
+    return { error: message };
   }
 };
 export const getActivities = async (
   req: Request,
   res: Response
-): Promise<Response> => {
+): Promise<Response | undefined> => {
   const {
     city,
     state,
@@ -106,14 +109,15 @@ export const getActivities = async (
     const activities = await ActivityModel.find(query, projection);
     return res.json(activities);
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 
 export const getActivity = async (
   req: Request,
   res: Response
-): Promise<Response<any, Record<string, any>>> => {
+): Promise<Response<any, Record<string, any>> | undefined> => {
   const { slug } = req.params;
 
   try {
@@ -125,17 +129,19 @@ export const getActivity = async (
 
     return res.json(activity);
   } catch (error) {
-    if (error.name === "CastError") {
+    const errorName = (error as Error).name;
+    if (errorName === "CastError") {
       return res.status(400).json({ message: "Invalid activity slug format" });
     }
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 
 export const getUsersCreatedActivities = async (
   req: CustomRequest,
   res: Response
-): Promise<Response<any, Record<string, any>>> => {
+): Promise<Response<any, Record<string, any>> | undefined> => {
   const userSessionId = req.user?._id;
 
   if (!userSessionId) {
@@ -146,7 +152,8 @@ export const getUsersCreatedActivities = async (
     const activities = await ActivityModel.find({ createdBy: userSessionId });
     res.json(activities);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 
@@ -192,14 +199,15 @@ export const createActivity = async (req: CustomRequest, res: Response) => {
 
     res.status(201).json(newActivity);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 
 export const updateActivity = async (
   req: CustomRequest,
   res: Response
-): Promise<Response<any, Record<string, any>>> => {
+): Promise<Response<any, Record<string, any>> | undefined> => {
   const { slug } = req.params;
   const userSessionId = req.user?._id.toString();
 
@@ -218,7 +226,7 @@ export const updateActivity = async (
     }
 
     // Check if the user is the creator or an admin
-    if (!isUserAdmin && activity.createdBy.toString() !== userSessionId) {
+    if (!isUserAdmin && activity.createdBy?.toString() !== userSessionId) {
       return res
         .status(403)
         .json({ message: "You are not authorized to update this activity" });
@@ -259,14 +267,15 @@ export const updateActivity = async (
 
     res.status(200).json(updatedActivity);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 
 export const deleteActivity = async (
   req: CustomRequest,
   res: Response
-): Promise<Response<any, Record<string, any>>> => {
+): Promise<Response<any, Record<string, any>> | undefined> => {
   const { slug } = req.params;
   const userSessionId = req.user?._id.toString();
 
@@ -291,7 +300,7 @@ export const deleteActivity = async (
     }
 
     // Check if the user is the creator or an admin
-    if (!isUserAdmin && activity.createdBy.toString() !== userSessionId) {
+    if (!isUserAdmin && activity.createdBy?.toString() !== userSessionId) {
       await session.abortTransaction();
       return res
         .status(403)
@@ -322,55 +331,15 @@ export const deleteActivity = async (
     // Abort the transaction in case of error
     await session.abortTransaction();
     session.endSession();
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
-
-// export const deleteActivity = async (
-//   req: CustomRequest,
-//   res: Response
-// ): Promise<Response<any, Record<string, any>>> => {
-//   const { slug } = req.params;
-//   const userSessionId = req.user?._id.toString();
-
-//   try {
-//     // Retrieve user role along with the user ID from the token
-//     const user = await UserModel.findById(userSessionId);
-//     if (!user) {
-//       return res.status(404).json({ message: "User not found" });
-//     }
-//     const isUserAdmin = user && user.role === "ADMIN";
-
-//     // Find activity by slug to authorize the deletion
-//     const activity = await ActivityModel.findOne({ slug: slug });
-//     if (!activity) {
-//       return res.status(404).json({ message: "Activity not found" });
-//     }
-
-//     // Check if the user is the creator or an admin
-//     if (!isUserAdmin && activity.createdBy.toString() !== userSessionId) {
-//       return res
-//         .status(403)
-//         .json({ message: "You are not authorized to delete this activity" });
-//     }
-
-//     // Proceed to delete the activity
-//     const deletedActivity = await ActivityModel.deleteOne({ slug: slug });
-//     if (deletedActivity.deletedCount === 0) {
-//       // No document found or deleted
-//       return res.status(404).json({ message: "Activity not found" });
-//     }
-
-//     res.status(204).send(); // 204 No Content for successful deletion
-//   } catch (error) {
-//     res.status(500).json({ error: error.message });
-//   }
-// };
 
 export const getUsersBucketListActivities = async (
   req: CustomRequest,
   res: Response
-): Promise<Response<any, Record<string, any>>> => {
+): Promise<Response<any, Record<string, any>> | undefined> => {
   const userSessionId = req.user?._id.toString();
 
   if (!userSessionId) {
@@ -415,14 +384,15 @@ export const getUsersBucketListActivities = async (
     // Return the populated activities
     res.json(activities);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 
 export const getUsersLikedActivities = async (
   req: CustomRequest,
   res: Response
-): Promise<Response<any, Record<string, any>>> => {
+): Promise<Response<any, Record<string, any>> | undefined> => {
   const userSessionId = req.user?._id.toString();
 
   if (!userSessionId) {
@@ -468,14 +438,15 @@ export const getUsersLikedActivities = async (
     // Return the populated activities
     res.json(activities);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 
 export const getUsersDoneActivities = async (
   req: CustomRequest,
   res: Response
-): Promise<Response<any, Record<string, any>>> => {
+): Promise<Response<any, Record<string, any>> | undefined> => {
   const userSessionId = req.user?._id.toString();
 
   if (!userSessionId) {
@@ -517,14 +488,15 @@ export const getUsersDoneActivities = async (
 
     res.json(activities);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 
 export const handleUserActionOnActivity = async (
   req: CustomRequest,
   res: Response
-): Promise<Response<any, Record<string, any>>> => {
+): Promise<Response<any, Record<string, any>> | undefined> => {
   const { slug } = req.params;
   const userSessionId = req.user?._id.toString();
   const { addToBucketList, alreadyCompleted, like } = req.query as {
@@ -611,14 +583,15 @@ export const handleUserActionOnActivity = async (
       return res.status(201).json(newLike);
     }
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 
 export const getActivityLikes = async (
   req: Request,
   res: Response
-): Promise<Response<any, Record<string, any>>> => {
+): Promise<Response<any, Record<string, any>> | undefined> => {
   const { slug } = req.params;
 
   try {
@@ -631,14 +604,15 @@ export const getActivityLikes = async (
 
     res.json(likes);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 
 export const deleteUserBucketListActivity = async (
   req: CustomRequest,
   res: Response
-): Promise<Response<any, Record<string, any>>> => {
+): Promise<Response<any, Record<string, any>> | undefined> => {
   const { slug } = req.params;
   const userSessionId = req.user?._id.toString();
 
@@ -682,14 +656,15 @@ export const deleteUserBucketListActivity = async (
 
     res.status(204).send(); // 204 No Content for successful deletion
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 
 export const deleteUserDoneActivity = async (
   req: CustomRequest,
   res: Response
-): Promise<Response<any, Record<string, any>>> => {
+): Promise<Response<any, Record<string, any>> | undefined> => {
   const { slug } = req.params;
   const userSessionId = req.user?._id.toString();
 
@@ -732,14 +707,15 @@ export const deleteUserDoneActivity = async (
 
     res.status(204).send(); // 204 No Content for successful deletion
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 
 export const deleteUserLikedActivity = async (
   req: CustomRequest,
   res: Response
-): Promise<Response<any, Record<string, any>>> => {
+): Promise<Response<any, Record<string, any>> | undefined> => {
   const { slug } = req.params;
   const userSessionId = req.user?._id.toString();
 
@@ -780,7 +756,8 @@ export const deleteUserLikedActivity = async (
 
     res.status(204).send(); // 204 No Content for successful deletion
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 /**

@@ -1,4 +1,15 @@
 import mongoose, { Schema } from "mongoose";
+import { CommentUser } from "./Comment";
+
+export type Reply = {
+  id: string;
+  activitySlug: string;
+  userId: CommentUser | string;
+  parentId: string | null | undefined;
+  text: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 const ReplySchema = new Schema(
   {

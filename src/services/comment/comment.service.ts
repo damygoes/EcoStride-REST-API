@@ -1,15 +1,14 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import { CustomRequest } from "../../interfaces/customRequest";
-import { CommentModel } from "../../models/Comment";
+import { CommentModel, TransformedCommentUser } from "../../models/Comment";
 import { ReplyModel } from "../../models/Reply";
-import { TransformedCommentUser } from "../../types/Comment";
 import { fetchRepliesForComment } from "../../utils/fetchRepliesForComment";
 
 export const createComment = async (
   req: CustomRequest,
   res: Response
-): Promise<Response<any, Record<string, any>>> => {
+): Promise<Response<any, Record<string, any>> | undefined> => {
   const session = await mongoose.startSession(); // Start a new session for the transaction
   try {
     session.startTransaction(); // Start the transaction
@@ -74,14 +73,15 @@ export const createComment = async (
   } catch (error) {
     await session.abortTransaction(); // Abort the transaction in case of error
     session.endSession(); // Always end the session
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 
 export const updateComment = async (
   req: CustomRequest,
   res: Response
-): Promise<Response<any, Record<string, any>>> => {
+): Promise<Response<any, Record<string, any>> | undefined> => {
   try {
     const userSessionId = req.user?._id;
     const { id } = req.params; // Comment ID from URL parameters
@@ -103,7 +103,8 @@ export const updateComment = async (
 
     res.status(200).json(updatedComment);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 
@@ -133,7 +134,8 @@ export const deleteComment = async (req: CustomRequest, res: Response) => {
 
     res.status(204).send();
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 
@@ -170,7 +172,8 @@ export const getComments = async (req: Request, res: Response) => {
 
     res.status(200).json(transformedComments);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };
 
@@ -189,6 +192,7 @@ export const getComment = async (req: Request, res: Response) => {
 
     res.status(200).json({ ...comment, replies });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const message = (error as Error).message;
+    res.status(500).json({ error: message });
   }
 };

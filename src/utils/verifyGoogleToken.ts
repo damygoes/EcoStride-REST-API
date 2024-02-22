@@ -11,10 +11,10 @@ export const verifyGoogleToken = async (token: string) => {
 
   // Extract user details from the payload
   const userDetails = {
-    email: payload["email"],
-    firstName: payload["given_name"],
-    lastName: payload["family_name"],
-    avatar: payload["picture"],
+    email: payload ? payload["email"] : "",
+    firstName: payload ? payload["given_name"] : "",
+    lastName: payload ? payload["family_name"] : "",
+    avatar: payload ? payload["picture"] : "",
   };
 
   return userDetails;

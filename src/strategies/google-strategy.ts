@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { IUser, UserModel } from "../models/User";
+import { UserModel } from "../models/User";
 
 dotenv.config();
 
@@ -18,23 +18,28 @@ passport.use(
         if (!user) {
           user = new UserModel({
             googleId: profile.id,
-            email: profile.emails[0].value,
-            firstName: profile.name.givenName,
-            lastName: profile.name.familyName,
-            avatar: profile.photos[0].value,
+            email: profile.emails?.[0]?.value,
+            firstName: profile.name?.givenName,
+            lastName: profile.name?.familyName,
+            avatar: profile.photos?.[0]?.value,
             role: "USER",
           });
           await user.save();
         }
         return done(null, user);
       } catch (error) {
-        return done(error, null);
+        return done(
+          error instanceof Error
+            ? error
+            : new Error("An unknown error occurred"),
+          undefined
+        );
       }
     }
   )
 );
 
-passport.serializeUser((user: IUser, done) => {
+passport.serializeUser((user: any, done) => {
   done(null, user.id);
 });
 

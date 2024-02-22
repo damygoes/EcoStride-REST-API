@@ -22,7 +22,10 @@ const userRouter = express.Router();
 
 // User
 userRouter.get("/", getUsers);
-userRouter.get("/current-user", isAuthenticated, getCurrentUser);
+userRouter.get("/current-user", isAuthenticated, (req, res) => {
+  const customReq = req as CustomRequest;
+  getCurrentUser(customReq, res);
+});
 userRouter.get("/:id", getUserById);
 userRouter.patch("/:id", isAuthenticated, (req, res) => {
   const customReq = req as CustomRequest;

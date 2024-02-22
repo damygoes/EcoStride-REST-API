@@ -26,7 +26,10 @@ userRouter.get("/current-user", isAuthenticated, (req, res) => {
   const customReq = req as CustomRequest;
   getCurrentUser(customReq, res);
 });
-userRouter.get("/:id", getUserById);
+userRouter.get("/:id", isAuthenticated, (req, res) => {
+  const customReq = req as CustomRequest;
+  getUserById(customReq, res);
+});
 userRouter.patch("/:id", isAuthenticated, (req, res) => {
   const customReq = req as CustomRequest;
   updateUserById(customReq, res);

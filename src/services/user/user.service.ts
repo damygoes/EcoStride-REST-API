@@ -22,7 +22,7 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const getUserById = async (
-  req: Request,
+  req: CustomRequest,
   res: Response
 ): Promise<Response<any, Record<string, any>> | undefined> => {
   const { id } = req.params;
@@ -53,7 +53,7 @@ export const getUserByEmail = async (email: string) => {
 };
 
 export const getCurrentUser = async (
-  req: Request,
+  req: CustomRequest,
   res: Response
 ): Promise<Response<any, Record<string, any>> | undefined> => {
   if (!req.user) {

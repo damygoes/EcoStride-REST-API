@@ -1,7 +1,7 @@
 const whitelist = [
-  // add the website where your react app is deployed
-  // ** Remove the last three after development as well as !origin and leave the top one as the website where your react app is deployed.
-  "http://localhost:3000",
+  // ** This is the website where react app is deployed
+  "https://eco-stride.vercel.app/",
+  // ** This is for local development
   "http://localhost:5173",
 ];
 export const corsOptions = {

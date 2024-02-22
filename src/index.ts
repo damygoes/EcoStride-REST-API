@@ -35,17 +35,28 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: "lax",
-      secure: true, // Ensure secure is true and using HTTPS in production
+      secure: process.env.NODE_ENV === "production" ? true : false, // Ensure secure is true and using HTTPS in production
     },
   })
 );
 app.use(passport.initialize());
 app.use(passport.session());
 
+if (process.env.NODE_ENV === "production") {
+  require("dotenv").config({ path: ".env.production" });
+} else {
+  require("dotenv").config({ path: ".env.development" });
+}
+
 app.use("/api", authRouter);
 app.use("/users", userRoute);
 app.use("/activities", activityRoute);
 app.use("/activities/:slug/comments", commentRouter);
+
+const serverMessage =
+  process.env.NODE_ENV === "production"
+    ? "Server running..."
+    : `Server is running on port ${PORT}`;
 
 mongoose
   .connect(process.env.MONGO_CONNECTION_URL as string)
@@ -56,4 +67,4 @@ mongoose
   });
 
 const server = http.createServer(app);
-server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+server.listen(PORT, () => console.log(serverMessage));

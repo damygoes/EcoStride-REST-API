@@ -7,7 +7,10 @@ dist/
 
 # Environment variables
 .env
+.env.development
+.env.production
 .env.local
+.env.test.local
 
 # IDE files
 .vscode/

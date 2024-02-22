@@ -1,5 +1,7 @@
+import dotenv from "dotenv";
 import express from "express";
 import passport from "passport";
+dotenv.config();
 
 const authRouter = express.Router();
 
@@ -13,7 +15,8 @@ authRouter.get(
   passport.authenticate("google", { failureRedirect: "/" }),
   (req, res) => {
     // Successful authentication, redirect home.
-    res.redirect("https://eco-stride.vercel.app");
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || "";
+    res.redirect(redirectUri);
   }
 );
 

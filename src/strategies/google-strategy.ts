@@ -11,7 +11,8 @@ passport.use(
       clientID: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
       callbackURL:
-        "https://ecostride-rest-api.onrender.com/api/auth/google/callback",
+        process.env.GOOGLE_STRATEGY_CALLBACK_URL ||
+        "http://localhost:3000/api/auth/google/callback",
     },
     async (accessToken, refreshToken, profile, done) => {
       try {

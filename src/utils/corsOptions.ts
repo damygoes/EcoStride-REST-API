@@ -1,6 +1,6 @@
 const whitelist = [
   // ** This is the website where react app is deployed
-  "https://eco-stride.vercel.app/",
+  "https://eco-stride.vercel.app",
   // ** This is for local development
   "http://localhost:5173",
 ];

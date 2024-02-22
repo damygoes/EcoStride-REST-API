@@ -10,7 +10,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-      callbackURL: "http://localhost:3000/api/auth/google/callback",
+      callbackURL: "https://eco-stride.vercel.app/api/auth/google/callback",
     },
     async (accessToken, refreshToken, profile, done) => {
       try {

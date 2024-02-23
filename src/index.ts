@@ -68,3 +68,5 @@ mongoose
 
 const server = http.createServer(app);
 server.listen(PORT, () => console.log(serverMessage));
+
+//"dev": "npm run build && concurrently \"npx tsc --watch\" \"nodemon -q dist/index.js\"",

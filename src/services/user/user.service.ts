@@ -56,7 +56,6 @@ export const getCurrentUser = async (
   req: CustomRequest,
   res: Response
 ): Promise<Response<any, Record<string, any>> | undefined> => {
-  console.log("req.user", req.user);
   if (!req.user) {
     return res.status(401).json({ message: "Unauthorized" });
   }

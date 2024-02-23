@@ -6,8 +6,6 @@ import { activityValidationSchema } from "../validations/activityValidator";
 
 dotenv.config();
 
-// const mongoConnectUrl =
-//   "mongodb+srv://damygoes:O8JD9e2JLfh8w6jh@ecostride.grcm9kb.mongodb.net/ecostride-db?retryWrites=true&w=majority&appName=EcoStride";
 const mongoConnectUrl = process.env.MONGO_CONNECTION_URL as string;
 
 mongoose

@@ -58,6 +58,8 @@ const serverMessage =
     ? "Server running..."
     : `Server is running on port ${PORT}`;
 
+console.log("serverMessage", serverMessage);
+
 mongoose
   .connect(process.env.MONGO_CONNECTION_URL as string)
   .then(() => console.log("Connected to MongoDB"))

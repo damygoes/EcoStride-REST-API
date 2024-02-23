@@ -6,8 +6,12 @@ import { activityValidationSchema } from "../validations/activityValidator";
 
 dotenv.config();
 
+// const mongoConnectUrl =
+//   "mongodb+srv://damygoes:O8JD9e2JLfh8w6jh@ecostride.grcm9kb.mongodb.net/ecostride-db?retryWrites=true&w=majority&appName=EcoStride";
+const mongoConnectUrl = process.env.MONGO_CONNECTION_URL as string;
+
 mongoose
-  .connect(process.env.MONGO_CONNECTION_URL as string)
+  .connect(mongoConnectUrl)
   .then(() => console.log("Connected to MongoDB"))
   .catch((error) => console.error("Error connecting to MongoDB:", error));
 

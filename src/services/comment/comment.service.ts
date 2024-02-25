@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { CustomRequest } from "../../interfaces/customRequest";
 import { CommentModel, TransformedCommentUser } from "../../models/Comment";
 import { ReplyModel } from "../../models/Reply";
+import { UserModel } from "../../models/User";
 import { fetchRepliesForComment } from "../../utils/fetchRepliesForComment";
 
 export const createComment = async (
@@ -13,10 +14,17 @@ export const createComment = async (
   try {
     session.startTransaction(); // Start the transaction
 
-    const userSessionId = req.user?._id;
     const { slug } = req.params;
+    const userEmail = req.user?.email;
 
-    if (!userSessionId) {
+    if (!userEmail) {
+      res.status(403).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const user = await UserModel.findOne({ email: userEmail }).session(session);
+
+    if (!user) {
       await session.abortTransaction(); // Abort the transaction
       session.endSession(); // End the session
       return res.status(403).json({ message: "Unauthorized" });
@@ -42,7 +50,7 @@ export const createComment = async (
       const newReplyData = {
         ...req.body,
         activitySlug: slug,
-        userId: userSessionId,
+        userId: user._id.toString(),
       };
 
       // Create the reply
@@ -63,7 +71,7 @@ export const createComment = async (
     } else {
       // Logic to handle new comment creation
       const newComment = await CommentModel.create(
-        [{ ...req.body, activitySlug: slug, userId: userSessionId }],
+        [{ ...req.body, activitySlug: slug, userId: user._id.toString() }],
         { session: session }
       );
       await session.commitTransaction(); // Commit the transaction
@@ -83,11 +91,12 @@ export const updateComment = async (
   res: Response
 ): Promise<Response<any, Record<string, any>> | undefined> => {
   try {
-    const userSessionId = req.user?._id;
     const { id } = req.params; // Comment ID from URL parameters
+    const userEmail = req.user?.email;
 
-    if (!userSessionId) {
-      return res.status(403).json({ message: "Unauthorized" });
+    if (!userEmail) {
+      res.status(403).json({ message: "Unauthorized" });
+      return;
     }
 
     // Service method now needs to check if the user is authorized to update this comment
@@ -110,17 +119,25 @@ export const updateComment = async (
 
 export const deleteComment = async (req: CustomRequest, res: Response) => {
   try {
-    const userSessionId = req.user?._id;
     const { id } = req.params;
 
-    if (!userSessionId) {
+    const userEmail = req.user?.email;
+
+    if (!userEmail) {
+      res.status(403).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const user = await UserModel.findOne({ email: userEmail });
+
+    if (!user) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
     // First, delete the comment itself
     const deletedComment = await CommentModel.findOneAndDelete({
       _id: id,
-      userId: userSessionId,
+      userId: user._id.toString(),
     });
 
     if (!deletedComment) {

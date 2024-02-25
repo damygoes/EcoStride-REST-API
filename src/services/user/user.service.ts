@@ -61,9 +61,8 @@ export const getCurrentUser = async (
   }
 
   try {
-    // Assuming req.user contains the necessary user information
-    // Adjust the response as needed based on your user model
-    res.json({ user: req.user });
+    const responseUser = await getUserByEmail(req.user.email);
+    res.json(responseUser);
   } catch (error) {
     const message = (error as Error).message;
     res.status(500).json({ error: message });
@@ -76,19 +75,24 @@ export const updateUserById = async (
 ): Promise<Response<any, Record<string, any>> | undefined> => {
   const id = req.params.id;
   const userUpdateData = req.body;
-  const userIdFromSession = req.user?._id.toString(); // Ensure this matches the type in your session
+  const userEmail = req.user?.email;
 
-  // Check if the session user matches the requested ID
-  if (userIdFromSession !== id) {
-    return res
-      .status(403)
-      .json({ message: "You can only update your own record" });
+  if (!userEmail) {
+    res.status(403).json({ message: "Unauthorized" });
+    return;
   }
 
   try {
-    const currentUser = await UserModel.findById(id);
+    const currentUser = await UserModel.findOne({ email: userEmail });
     if (!currentUser) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if the session user matches the requested ID
+    if (userEmail !== currentUser.email) {
+      return res
+        .status(403)
+        .json({ message: "You can only update your own record" });
     }
 
     // Directly merge top-level fields from userUpdateData to currentUser
@@ -139,9 +143,19 @@ export const deleteUserById = async (
   res: Response
 ): Promise<Response<any, Record<string, any>> | undefined> => {
   const { id } = req.params;
-  const userIdFromSession = req.user?._id.toString();
+  const userEmail = req.user?.email;
 
-  if (userIdFromSession !== id) {
+  if (!userEmail) {
+    res.status(403).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const userTodelete = await UserModel.findOne({ email: userEmail });
+  if (!userTodelete) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  if (id !== userTodelete._id.toString()) {
     return res
       .status(403)
       .json({ message: "You can only delete your own record" });

@@ -142,14 +142,22 @@ export const getUsersCreatedActivities = async (
   req: CustomRequest,
   res: Response
 ): Promise<Response<any, Record<string, any>> | undefined> => {
-  const userSessionId = req.user?._id;
+  const userEmail = req.user?.email;
 
-  if (!userSessionId) {
-    return res.status(403).json({ message: "Authentication required" });
+  if (!userEmail) {
+    res.status(403).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const user = await UserModel.findOne({ email: userEmail });
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
   }
 
   try {
-    const activities = await ActivityModel.find({ createdBy: userSessionId });
+    const activities = await ActivityModel.find({
+      createdBy: user._id.toString(),
+    });
     res.json(activities);
   } catch (error) {
     const message = (error as Error).message;
@@ -158,7 +166,12 @@ export const getUsersCreatedActivities = async (
 };
 
 export const createActivity = async (req: CustomRequest, res: Response) => {
-  const userSessionId = req.user?._id.toString();
+  const userEmail = req.user?.email;
+
+  if (!userEmail) {
+    res.status(403).json({ message: "Unauthorized" });
+    return;
+  }
 
   // Validate request body first
   const validationResult = activityValidationSchema.validate(req.body);
@@ -167,7 +180,7 @@ export const createActivity = async (req: CustomRequest, res: Response) => {
   }
 
   try {
-    const user = await UserModel.findById(userSessionId);
+    const user = await UserModel.findOne({ email: userEmail });
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -189,7 +202,7 @@ export const createActivity = async (req: CustomRequest, res: Response) => {
     const activityData = {
       ...validationResult.value,
       slug,
-      createdBy: userSessionId,
+      createdBy: user._id.toString(),
       isCreatedByAdmin: isUserAdmin,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -209,11 +222,16 @@ export const updateActivity = async (
   res: Response
 ): Promise<Response<any, Record<string, any>> | undefined> => {
   const { slug } = req.params;
-  const userSessionId = req.user?._id.toString();
+  const userEmail = req.user?.email;
+
+  if (!userEmail) {
+    res.status(403).json({ message: "Unauthorized" });
+    return;
+  }
 
   try {
     // Retrieve user role along with the user ID from the token
-    const user = await UserModel.findById(userSessionId);
+    const user = await UserModel.findOne({ email: userEmail });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -226,7 +244,10 @@ export const updateActivity = async (
     }
 
     // Check if the user is the creator or an admin
-    if (!isUserAdmin && activity.createdBy?.toString() !== userSessionId) {
+    if (
+      !isUserAdmin &&
+      activity.createdBy?.toString() !== user._id.toString()
+    ) {
       return res
         .status(403)
         .json({ message: "You are not authorized to update this activity" });
@@ -277,7 +298,12 @@ export const deleteActivity = async (
   res: Response
 ): Promise<Response<any, Record<string, any>> | undefined> => {
   const { slug } = req.params;
-  const userSessionId = req.user?._id.toString();
+  const userEmail = req.user?.email;
+
+  if (!userEmail) {
+    res.status(403).json({ message: "Unauthorized" });
+    return;
+  }
 
   // Start a session and transaction
   const session = await startSession();
@@ -285,7 +311,7 @@ export const deleteActivity = async (
     session.startTransaction();
 
     // Retrieve user role along with the user ID from the token
-    const user = await UserModel.findById(userSessionId).session(session);
+    const user = await UserModel.findOne({ email: userEmail }).session(session);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -300,7 +326,10 @@ export const deleteActivity = async (
     }
 
     // Check if the user is the creator or an admin
-    if (!isUserAdmin && activity.createdBy?.toString() !== userSessionId) {
+    if (
+      !isUserAdmin &&
+      activity.createdBy?.toString() !== user._id.toString()
+    ) {
       await session.abortTransaction();
       return res
         .status(403)
@@ -340,15 +369,15 @@ export const getUsersBucketListActivities = async (
   req: CustomRequest,
   res: Response
 ): Promise<Response<any, Record<string, any>> | undefined> => {
-  const userSessionId = req.user?._id.toString();
+  const userEmail = req.user?.email;
 
-  if (!userSessionId) {
+  if (!userEmail) {
     res.status(403).json({ message: "Unauthorized" });
     return;
   }
 
   // Retrieve user role along with the user ID from the token
-  const user = await UserModel.findById(userSessionId);
+  const user = await UserModel.findOne({ email: userEmail });
   if (!user) {
     res.status(404).json({ message: "User not found" });
     return;
@@ -359,7 +388,7 @@ export const getUsersBucketListActivities = async (
 
   // If the user is not an admin, modify the query to fetch only their activities
   if (!isUserAdmin) {
-    query = { userId: userSessionId };
+    query = { userId: user._id };
   }
 
   try {
@@ -393,15 +422,15 @@ export const getUsersLikedActivities = async (
   req: CustomRequest,
   res: Response
 ): Promise<Response<any, Record<string, any>> | undefined> => {
-  const userSessionId = req.user?._id.toString();
+  const userEmail = req.user?.email;
 
-  if (!userSessionId) {
-    res.status(403).json({ message: "User ID not found in token" });
+  if (!userEmail) {
+    res.status(403).json({ message: "Unauthorized" });
     return;
   }
 
   // Retrieve user role along with the user ID from the token
-  const user = await UserModel.findById(userSessionId);
+  const user = await UserModel.findOne({ email: userEmail });
   if (!user) {
     res.status(404).json({ message: "User not found" });
     return;
@@ -412,7 +441,7 @@ export const getUsersLikedActivities = async (
 
   // If the user is not an admin, modify the query to fetch only their activities
   if (!isUserAdmin) {
-    query = { userId: userSessionId };
+    query = { userId: user._id };
   }
 
   try {
@@ -447,15 +476,15 @@ export const getUsersDoneActivities = async (
   req: CustomRequest,
   res: Response
 ): Promise<Response<any, Record<string, any>> | undefined> => {
-  const userSessionId = req.user?._id.toString();
+  const userEmail = req.user?.email;
 
-  if (!userSessionId) {
-    res.status(403).json({ message: "User ID not found in token" });
+  if (!userEmail) {
+    res.status(403).json({ message: "Unauthorized" });
     return;
   }
 
   // Retrieve user role along with the user ID from the token
-  const user = await UserModel.findById(userSessionId);
+  const user = await UserModel.findOne({ email: userEmail });
   if (!user) {
     res.status(404).json({ message: "User not found" });
     return;
@@ -466,7 +495,7 @@ export const getUsersDoneActivities = async (
 
   // If the user is not an admin, modify the query to fetch only their activities
   if (!isUserAdmin) {
-    query = { userId: userSessionId };
+    query = { userId: user._id };
   }
 
   try {
@@ -498,7 +527,12 @@ export const handleUserActionOnActivity = async (
   res: Response
 ): Promise<Response<any, Record<string, any>> | undefined> => {
   const { slug } = req.params;
-  const userSessionId = req.user?._id.toString();
+  const userEmail = req.user?.email;
+
+  if (!userEmail) {
+    res.status(403).json({ message: "Unauthorized" });
+    return;
+  }
   const { addToBucketList, alreadyCompleted, like } = req.query as {
     addToBucketList?: boolean;
     alreadyCompleted?: boolean;
@@ -506,7 +540,7 @@ export const handleUserActionOnActivity = async (
   };
 
   try {
-    const user = await UserModel.findById(userSessionId);
+    const user = await UserModel.findOne({ email: userEmail });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -521,7 +555,7 @@ export const handleUserActionOnActivity = async (
       // Add activity to user's bucket list
       const bucketListItem = await BucketListModel.findOne({
         activityId: activity._id,
-        userId: userSessionId,
+        userId: user._id.toString(),
       });
 
       if (bucketListItem) {
@@ -532,7 +566,7 @@ export const handleUserActionOnActivity = async (
 
       const newBucketListItem = await BucketListModel.create({
         activityId: activity._id,
-        userId: userSessionId,
+        userId: user._id.toString(),
         addedAt: new Date(),
       });
 
@@ -543,7 +577,7 @@ export const handleUserActionOnActivity = async (
       // Add activity to user's done activities
       const doneActivity = await DoneActivityModel.findOne({
         activityId: activity._id,
-        userId: userSessionId,
+        userId: user._id.toString(),
       });
 
       if (doneActivity) {
@@ -554,7 +588,7 @@ export const handleUserActionOnActivity = async (
 
       const newDoneActivity = await DoneActivityModel.create({
         activityId: activity._id,
-        userId: userSessionId,
+        userId: user._id.toString(),
         completedAt: new Date(),
       });
 
@@ -565,7 +599,7 @@ export const handleUserActionOnActivity = async (
       // Add user to the likes array
       const likedActivity = await LikeModel.findOne({
         activityId: activity._id,
-        userId: userSessionId,
+        userId: user._id.toString(),
       });
 
       if (likedActivity) {
@@ -576,7 +610,7 @@ export const handleUserActionOnActivity = async (
 
       const newLike = await LikeModel.create({
         activityId: activity._id,
-        userId: userSessionId,
+        userId: user._id.toString(),
         likedAt: new Date(),
       });
 
@@ -614,11 +648,16 @@ export const deleteUserBucketListActivity = async (
   res: Response
 ): Promise<Response<any, Record<string, any>> | undefined> => {
   const { slug } = req.params;
-  const userSessionId = req.user?._id.toString();
+  const userEmail = req.user?.email;
+
+  if (!userEmail) {
+    res.status(403).json({ message: "Unauthorized" });
+    return;
+  }
 
   try {
     // Retrieve user role along with the user ID from the token
-    const user = await UserModel.findById(userSessionId);
+    const user = await UserModel.findOne({ email: userEmail });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -633,7 +672,7 @@ export const deleteUserBucketListActivity = async (
     // Check if the user has the activity in their bucket list
     const bucketListItem = await BucketListModel.findOne({
       activityId: activity._id,
-      userId: userSessionId,
+      userId: user._id.toString(),
     });
 
     if (!bucketListItem) {
@@ -645,7 +684,7 @@ export const deleteUserBucketListActivity = async (
     // Proceed to delete the activity from the user's bucket list
     const deletedBucketListItem = await BucketListModel.deleteOne({
       activityId: activity._id,
-      userId: userSessionId,
+      userId: user._id.toString(),
     });
     if (deletedBucketListItem.deletedCount === 0) {
       // No document found or deleted
@@ -666,11 +705,16 @@ export const deleteUserDoneActivity = async (
   res: Response
 ): Promise<Response<any, Record<string, any>> | undefined> => {
   const { slug } = req.params;
-  const userSessionId = req.user?._id.toString();
+  const userEmail = req.user?.email;
+
+  if (!userEmail) {
+    res.status(403).json({ message: "Unauthorized" });
+    return;
+  }
 
   try {
     // Retrieve user role along with the user ID from the token
-    const user = await UserModel.findById(userSessionId);
+    const user = await UserModel.findOne({ email: userEmail });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -684,7 +728,7 @@ export const deleteUserDoneActivity = async (
     // Check if the user has the activity in their done activities
     const doneActivity = await DoneActivityModel.findOne({
       activityId: activity._id,
-      userId: userSessionId,
+      userId: user._id.toString(),
     });
 
     if (!doneActivity) {
@@ -696,7 +740,7 @@ export const deleteUserDoneActivity = async (
     // Proceed to delete the activity from the user's done activities
     const deletedDoneActivity = await DoneActivityModel.deleteOne({
       activityId: activity._id,
-      userId: userSessionId,
+      userId: user._id.toString(),
     });
     if (deletedDoneActivity.deletedCount === 0) {
       // No document found or deleted
@@ -717,11 +761,16 @@ export const deleteUserLikedActivity = async (
   res: Response
 ): Promise<Response<any, Record<string, any>> | undefined> => {
   const { slug } = req.params;
-  const userSessionId = req.user?._id.toString();
+  const userEmail = req.user?.email;
+
+  if (!userEmail) {
+    res.status(403).json({ message: "Unauthorized" });
+    return;
+  }
 
   try {
     // Retrieve user role along with the user ID from the token
-    const user = await UserModel.findById(userSessionId);
+    const user = await UserModel.findOne({ email: userEmail });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -735,7 +784,7 @@ export const deleteUserLikedActivity = async (
     // Check if the user has liked the activity
     const likedActivity = await LikeModel.findOne({
       activityId: activity._id,
-      userId: userSessionId,
+      userId: user._id.toString(),
     });
 
     if (!likedActivity) {
@@ -747,7 +796,7 @@ export const deleteUserLikedActivity = async (
     // Proceed to delete the like
     const deletedLike = await LikeModel.deleteOne({
       activityId: activity._id,
-      userId: userSessionId,
+      userId: user._id.toString(),
     });
     if (deletedLike.deletedCount === 0) {
       // No document found or deleted

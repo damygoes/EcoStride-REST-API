@@ -1,73 +1,50 @@
-// import dotenv from "dotenv";
-// import { Request, Response } from "express";
-// import jwt from "jsonwebtoken";
-// import { v4 as uuidv4 } from "uuid";
-// import { UserModel } from "../../models/User";
-// import { verifyGoogleToken } from "../../utils/verifyGoogleToken";
-// import { getUserByEmail } from "../user/user.service";
-// dotenv.config();
+import { Response } from "express";
+import jwt from "jsonwebtoken";
+import { CustomRequest } from "../../interfaces/customRequest";
+import { UserModel } from "../../models/User";
+import { generateTokens } from "../../utils/generateTokens";
 
-// export const authenticateUser = async (req: Request, res: Response) => {
-//   try {
-//     const { token } = req.body;
-//     const userDetails = await verifyGoogleToken(token);
-//     let user = await getUserByEmail(userDetails.email);
-//     if (!user) {
-//       user = new UserModel({
-//         ...userDetails,
-//         id: uuidv4(),
-//         role: "USER",
-//         createdAt: new Date(),
-//         updatedAt: new Date(),
-//       });
+export const refreshUserToken = async (req: CustomRequest, res: Response) => {
+  try {
+    const requestRefreshToken = req.cookies.refreshToken;
+    if (!requestRefreshToken) {
+      return res.sendStatus(401); // Unauthorized
+    }
+    const payload = jwt.verify(
+      requestRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET!
+    ) as jwt.JwtPayload;
 
-//       await user.save();
-//     }
+    const userEmail = payload.email;
 
-//     const newToken = jwt.sign(
-//       { userId: user.id },
-//       process.env.JWT_SECRET_KEY, // JWT_SECRET in the .env is for signing the token to ensure it's not tampered with.
-//       {
-//         expiresIn: "24h",
-//       }
-//     );
+    // Optionally validate the refresh token further, e.g., checking it against a store of issued tokens
 
-//     // Transform the user object for the response
-//     const responseUser = {
-//       id: user.id,
-//       firstName: user.firstName,
-//       lastName: user.lastName,
-//       email: user.email,
-//       avatar: user.avatar,
-//       role: user.role,
-//       createdAt: user.createdAt,
-//       updatedAt: user.updatedAt,
-//     };
+    const user = await UserModel.findOne({ email: userEmail });
+    if (!user) {
+      return res.sendStatus(403); // Forbidden
+    }
 
-//     const responseObject = {
-//       token: newToken,
-//       user: responseUser,
-//     };
-//     return res.status(200).json(responseObject);
-//   } catch (error) {
-//     return res.status(500).json({ error: error.message });
-//   }
-// };
+    // Generate new tokens
+    const { accessToken, refreshToken } = generateTokens(user);
 
-// Example Express route setup for initiating Google OAuth flow
-// const router = express.Router();
-// router.get(
-//   "/auth/google",
-//   passport.authenticate("google", { scope: ["profile", "email"] })
-// );
+    // Set the new tokens in HTTP-only cookies
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      maxAge: 15 * 60 * 1000,
+    }); // 15 minutes
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      path: "/api/auth/refresh",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    }); // 7 days
 
-// router.get(
-//   "/auth/google/callback",
-//   passport.authenticate("google", { failureRedirect: "/login" }),
-//   (req, res) => {
-//     // Successful authentication, redirect or send user info
-//     res.redirect("/");
-//   }
-// );
-
-// export default router;
+    res.sendStatus(200);
+  } catch (error) {
+    console.error("Error refreshing tokens:", error);
+    res.sendStatus(403); // Forbidden
+  }
+};
